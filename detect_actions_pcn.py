@@ -9,7 +9,7 @@ import sys
 import argparse
 
 import object_detection.object_detector_pcn as obj
-import action_detection.action_detector as act
+import action_detection.action_detector_pcn as act
 
 import time
 
@@ -32,6 +32,8 @@ def main():
     out_img_path = "./output_videos/%s_output.jpg" % basename
 
     main_folder = './'
+
+    #actor_to_display = 6 # for cams
 
     # NAS
 
@@ -82,7 +84,7 @@ def main():
     frame_count = 0
     while True:
         
-        return_value, cur_img = reader.read()
+        return_value, current_video_frame = reader.read()
         if return_value == False:
             break
 
@@ -91,24 +93,24 @@ def main():
 
         #--Object Detection--#
 
-        expanded_img = np.expand_dims(cur_img, axis=0)
-        #expanded_img = np.tile(expanded_img, [10,1,1,1]) # test the speed
-
+        current_video_frame_expanded = np.expand_dims(current_video_frame, axis=0)
 
         t1 = time.time()
 
-        detection_list = obj_detector.detect_objects_in_np(expanded_img)
-
+        #calling of the object detection functions.
+        detection_list = obj_detector.detect_objects_in_np(current_video_frame_expanded)
         detection_info = [info[0] for info in detection_list]
 
         t2 = time.time(); print('obj det %.2f seconds' % (t2-t1))
 
-        tracker.update_tracker(detection_info, cur_img)
+        #Tracker
+        tracker.update_tracker(detection_info, current_video_frame)
         
         t3 = time.time(); print('tracker %.2f seconds' % (t3-t2))
         num_actors = len(tracker.active_actors)
 
         #--Action detection--#
+
         if tracker.active_actors and frame_count % action_freq == 0:
             probs = []
 
@@ -137,26 +139,56 @@ def main():
                 run_dict['cls_weights'] = act_detector.act_graph.get_collection('variables')[-2] # this is the kernel
 
             out_dict = act_detector.session.run(run_dict, feed_dict=feed_dict)
-            probs = out_dict['pred_probs']
+
+            probs = out_dict['pred_probs'] #Stores the confidence score (probaility) of all actions for EACH Actor in an numpy array
 
             # associate probs with actor ids
-            print_top_k = 5
-            for bb in range(num_actors):
-                act_probs = probs[bb]
-                order = np.argsort(act_probs)[::-1]
-                cur_actor_id = tracker.active_actors[bb]['actor_id']
-                print("Person %i" % cur_actor_id)
-                cur_results = []
-                for pp in range(print_top_k):
-                    print('\t %s: %.3f' % (act.ACTION_STRINGS[order[pp]], act_probs[order[pp]]))
-                    cur_results.append((act.ACTION_STRINGS[order[pp]], act_probs[order[pp]]))
-                prob_dict[cur_actor_id] = cur_results
+            TOP_NUMBER_OF_ITEMS_TO_RETURN_IN_LIST = 5
 
-            t5 = time.time(); print('action %.2f seconds' % (t5-t3))
+            for bbox in range(num_actors):
+
+                #all action probabilities for an actor in the indexed sequence in ACTION_DESCRIPTION dictionary
+                action_probs = probs[bbox] #numpy array
+
+                #returns a numpy array of the same shape
+                #Sorts the indexed action according to probability in decending order
+                ordered_action_probs = np.argsort(action_probs)[::-1]
+
+                cur_actor_id = tracker.active_actors[bbox]['actor_id']
+                print("Person %i" % cur_actor_id)
+
+                cur_results = []
+
+                TOP_ACTIONS_DICT = {}
+                for i in range(TOP_NUMBER_OF_ITEMS_TO_RETURN_IN_LIST):
+                    action_key = ordered_action_probs[i]
+                    ''' int : [string, float]'''
+                    TOP_ACTIONS_DICT[action_key] = [act.ACTION_DESCRIPTION[action_key], action_probs[action_key]]
+                
+                #appends description and action probablity to current results.
+                #prints output in the terminal
+                for action_key in TOP_ACTIONS_DICT: 
+                    top_action_prob = TOP_ACTIONS_DICT[action_key][1]
+                    top_action_description = TOP_ACTIONS_DICT[action_key][0] 
+
+                    print('\t {}: {:.3f}'.format(top_action_description, top_action_prob)) # run/jog: 0.140
+                    cur_results.append((top_action_description, top_action_prob))
+
+                #to determine what is the likely overall action based on the top action list and their probabilities
+                overall_action_description, overall_action_prob = get_overall_action(TOP_ACTIONS_DICT)
+
+                #Append overall_action_description to cur_results
+                print('\t Overall: {}, {:.3f}'.format(overall_action_description, overall_action_prob))
+                cur_results.append((overall_action_description, overall_action_prob))
+
+                prob_dict[cur_actor_id] = cur_results 
+
+            t4 = time.time(); print('action %.2f seconds' % (t4-t3))
         
         if frame_count > 16:
 
             out_img = visualize_detection_results(tracker.frame_history[-16], tracker.active_actors, prob_dict)
+
             if SHOW_CAMS:
                 if tracker.active_actors:
                     actor_indices = [ii for ii in range(num_actors) if tracker.active_actors[ii]['actor_id'] == actor_to_display]
@@ -178,46 +210,33 @@ def main():
         if not disable_writer:
             writer.release()   
 
-
-""" def remove_actors_with_small_bbox(tracker, threshold_area=0.001):
+#evaluates overall action in a given frame
+def get_overall_action(action_dict):
+    top_action = ["NULL", 0]
+    run_jog_present = False
+    carry_present = False
+    walk_present = False
+    for action_key, action_description_prob in action_dict.items():
+        if action_description_prob[1] > top_action[1]:
+            top_action = action_description_prob
+        if action_key == 8 and action_description_prob[1] > 0.1: #8: run/jog
+            run_jog_present = True
+        if action_key == 14 and action_description_prob[1] > 0.2: #14: carry/hold
+            carry_present = True
+        if action_key == 12 and action_description_prob[1] > 0.5: #12: walk
+            walk_present = True
     
-    import pdb
-    pdb.set_trace()
+    if walk_present and run_jog_present and carry_present:
+        top_action = ["run/jog", -99]
 
-    all_actors = tracker.active_actors
-    actors_out = []
-
-    def get_area(bbox):
-        '''[y-min,x-min,y-max,x-max] '''
-        width = bbox[3]-bbox[1]
-        height = bbox[2]-bbox[0]
-        area = width*height
-        return area
- 
-    def bboxes_below_threshold(actor):
-        all_boxes = actor["all_boxes"]
-        #Determine if all of the bboxes are below threshold
-        failed_boxes = 0
-        for box in all_boxes:
-            if get_area(box) < threshold_area:
-                failed_boxes += 1
-        return failed_boxes >= len(all_boxes)
-
-    for actor in all_actors:
-        #If all of the bboxes are below threshold, dont append actor to actors_out.
-        if bboxes_below_threshold(actor):
-            continue
-        else:
-            actors_out.append(actor)
-
-    tracker.active_actors = actors_out """
+    return top_action
 
 
 np.random.seed(10)
 COLORS = np.random.randint(0, 255, [1000, 3])
 def visualize_detection_results(img_np, active_actors, prob_dict):
     score_th = 0.30
-    action_th = 0.20
+    action_th = 0
 
     # copy the original image first
     disp_img = np.copy(img_np)
@@ -227,8 +246,10 @@ def visualize_detection_results(img_np, active_actors, prob_dict):
         cur_actor = active_actors[ii]
         actor_id = cur_actor['actor_id']
         cur_act_results = prob_dict[actor_id] if actor_id in prob_dict else []
+        object_class = 1   # 'person' has a id of 1 in OBJECT_STRINGS
+
         try:
-            cur_box, cur_score, cur_class = cur_actor['all_boxes'][-16], cur_actor['all_scores'][0], 1
+            cur_box, cur_score, cur_class = cur_actor['all_boxes'][-16], cur_actor['all_scores'][0], object_class
         except IndexError:
             continue
         
@@ -247,19 +268,27 @@ def visualize_detection_results(img_np, active_actors, prob_dict):
         label = obj.OBJECT_STRINGS[cur_class]['name']
         message = '%s_%i: %% %.2f' % (label, actor_id,conf)
         action_message_list = ["%s:%.3f" % (actres[0][0:7], actres[1]) for actres in cur_act_results if actres[1]>action_th]
+        action_summary = cur_act_results[-1][0]
 
         color = COLORS[actor_id]
         cv2.rectangle(disp_img, (left,top), (right,bottom), color.tolist(), 3)
 
         font_size =  max(0.5,(right - left)/50.0/float(len(message)))
+
+        #position and writes the overall action message.
+        cv2.rectangle(disp_img, (left, top-int(font_size*40)-60), (right,top-int(font_size*40)), color.tolist(), -1)
+        cv2.putText(disp_img, action_summary, (left, top-40), 0, font_size*2, (np.array([255,255,255])-color).tolist(), 1)
+
+        #position and writes the label, actor id and confidence 
         cv2.rectangle(disp_img, (left, top-int(font_size*40)), (right,top), color.tolist(), -1)
         cv2.putText(disp_img, message, (left, top-12), 0, font_size, (np.array([255,255,255])-color).tolist(), 1)
 
-        #action message writing
+        #position and writes the action messages.
         cv2.rectangle(disp_img, (left, top), (right,top+10*len(action_message_list)), color.tolist(), -1)
         for aa, action_message in enumerate(action_message_list):
             offset = aa*10
-            cv2.putText(disp_img, action_message, (left, top+5+offset), 0, 0.5, (np.array([255,255,255])-color).tolist(), 1)
+            cv2.putText(disp_img, action_message, (left, top+5+offset), 0, font_size, (np.array([255,255,255])-color).tolist(), 1)
+
 
     return disp_img
 
@@ -268,7 +297,7 @@ def visualize_cams(image, input_frames, out_dict, actor_idx):
     #classes = ["walk", "bend", "carry"]
     #classes = ["sit", "ride"]
     classes = ["talk to", "watch (a", "listen to"]
-    action_classes = [cc for cc in range(60) if any([cname in act.ACTION_STRINGS[cc] for cname in classes])]
+    action_classes = [cc for cc in range(60) if any([cname in act.ACTION_DESCRIPTION[cc] for cname in classes])]
 
     feature_activations = out_dict['final_i3d_feats']
     cls_weights = out_dict['cls_weights']
@@ -292,7 +321,7 @@ def visualize_cams(image, input_frames, out_dict, actor_idx):
     img_to_concat = np.zeros((400, 400, 3), np.uint8)
     for cc in range(len(action_classes)):
         cur_cls_idx = action_classes[cc]
-        act_str = act.ACTION_STRINGS[action_classes[cc]]
+        act_str = act.ACTION_DESCRIPTION[action_classes[cc]]
         message = "%s:%%%.2d" % (act_str[:20], 100*probs[actor_idx, cur_cls_idx])
         for tt in range(t_feats):
             cur_cam = normalized_cmaps[actor_idx, tt,:,:, cur_cls_idx]

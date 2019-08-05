@@ -1,6 +1,5 @@
 import tensorflow as tf
 import numpy as np
-# import cv2
 
 class Object_Detector():
     def __init__(self, graph_path, session=None):
@@ -65,7 +64,9 @@ from tools.generate_detections import create_box_encoder
 from deep_sort import nn_matching
 from deep_sort.detection import Detection
 from deep_sort.tracker import Tracker as ds_Tracker
+
 MODEL_CKPT = "./object_detection/deep_sort/weights/mars-small128.pb"
+
 class Tracker():
     def __init__(self, timesteps=32):
         self.active_actors = []
@@ -80,11 +81,9 @@ class Tracker():
         metric = nn_matching.NearestNeighborDistanceMetric("cosine", 0.2, None) #, max_cosine_distance=0.2) #, nn_budget=None)
         self.tracker = ds_Tracker(metric, max_iou_distance=0.7, max_age=200, n_init=5)
         self.score_th = 0.40
-        #self.results = []
-
 
     def get_area(self, bbox):
-        '''[y-min,x-min,y-max,x-max] '''
+        '''Argument format: [y-min,x-min,y-max,x-max] '''
         for b in bbox:
             width = bbox[3]-bbox[1]
             height = bbox[2]-bbox[0]
@@ -98,9 +97,9 @@ class Tracker():
 
         boxes, scores, classes, num_detections = detection_info
         
-        #This threshold filters out the object detections with a bounding box area that are too small.
-        #These are objects that are too far away in the scene, with poor resolution.
-        #Processing these objects with action detection will result in noise and inaccuracy in the data
+        #This threshold filters out objects detected that have very small bounding boxes.
+        #Small bounding boxes indicates that the object is far away in the background, with relatively low image resolution.
+        #Processing these objects with action detection will generally result in false detections and creates unwanted noise in the dataset. 
         BOUNDING_BOX_AREA_THRESHOLD = 0.001
 
         #creates new np.array boxes_area out of the coordinate points of the bboxes in the np.array boxes 
@@ -141,7 +140,6 @@ class Tracker():
         self.tracker.update(detection_list)
         
         # Store results.
-        #results = []
         actives = []
         for track in self.tracker.tracks:
             if not track.is_confirmed() or track.time_since_update > 1:
@@ -151,8 +149,6 @@ class Tracker():
             tr_box = [top / float(H), left / float(W), (top+height)/float(H), (left+width)/float(W)]
             actor_id = track.track_id
             detection_conf = track.last_detection_confidence
-            #results.append([frame_idx, track.track_id, bbox[0], bbox[1], bbox[2], bbox[3]])
-            #results.append({'all_boxes': [tr_box], 'all_scores': [1.00], 'actor_id': track.track_id})
             if actor_id in self.actor_infos: # update with the new bbox info
                 cur_actor = self.actor_infos[actor_id]
                 no_interpolate_frames = self.frame_no - cur_actor['last_updated_frame_no']
@@ -168,22 +164,11 @@ class Tracker():
 
         self.active_actors = actives
         
-
-        #initialize first
-        #if not self.frame_history:
-        #    for _ in range(2*self.timesteps):
-        #        self.frame_history.append(np.zeros([H,W,C], np.uint8))
         self.frame_history.append(frame)
         if len(self.frame_history) > 2*self.timesteps:
             del self.frame_history[0]
-        # if len(self.frame_history) == self.timesteps:
-        #     del self.frame_history[0]
-        #     self.frame_history.append(frame)
-        # else:
-        #     self.frame_history.append(frame)
 
         self.frame_no += 1
-
 
 
     def generate_all_rois(self):
