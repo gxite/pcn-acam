@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 
+
 class Object_Detector():
     def __init__(self, graph_path, session=None):
         self.graph_path = graph_path
@@ -76,11 +77,35 @@ class Tracker():
         self.frame_no = 0
         self.timesteps = timesteps
         self.actor_infos = {}
+
         # deep sort
         self.encoder = create_box_encoder(MODEL_CKPT, batch_size=16)
         metric = nn_matching.NearestNeighborDistanceMetric("cosine", 0.2, None) #, max_cosine_distance=0.2) #, nn_budget=None)
         self.tracker = ds_Tracker(metric, max_iou_distance=0.7, max_age=200, n_init=5)
         self.score_th = 0.40
+
+        #overall activity history for active actors.
+        self.actor_overall_action_history = {}
+
+    def update_actor_overall_action_history(self, actor_id, overall_action):
+        if self.actor_overall_action_history:
+            if actor_id in self.actor_overall_action_history: 
+               self.actor_overall_action_history[actor_id].append(overall_action)
+            else:
+               self.actor_overall_action_history[actor_id] = [overall_action,]                 
+        else: 
+            self.actor_overall_action_history[actor_id] = [overall_action,]
+        print(self.actor_overall_action_history)
+            
+    def cleanup_actor_overall_action_history(self, all_current_actor_id):
+        to_cleanup = []
+        for active in self.actor_overall_action_history: #for each key in actor_overall_action_history
+            if active not in all_current_actor_id:
+                to_cleanup.append(active)
+
+        for item in to_cleanup:
+            self.actor_overall_action_history.pop(item)
+        print("CLEANUP ",self.actor_overall_action_history)
 
     def get_area(self, bbox):
         '''Argument format: [y-min,x-min,y-max,x-max] '''
@@ -92,9 +117,8 @@ class Tracker():
 
     def update_tracker(self, detection_info, frame):
         ''' Takes the frame and the results from the object detection
-            Updates the tracker wwith the current detections and creates new tracks
+            Updates the tracker with the current detections and creates new tracks
         '''
-
         boxes, scores, classes, num_detections = detection_info
         
         #This threshold filters out objects detected that have very small bounding boxes.

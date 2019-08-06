@@ -144,6 +144,9 @@ def main():
 
             # associate probs with actor ids
             TOP_NUMBER_OF_ITEMS_TO_RETURN_IN_LIST = 5
+            
+            #stores the actor_id of all current actors
+            all_current_actor_id = []
 
             for bbox in range(num_actors):
 
@@ -151,10 +154,14 @@ def main():
                 action_probs = probs[bbox] #numpy array
 
                 #returns a numpy array of the same shape
-                #Sorts the indexed action according to probability in decending order
+                #Sorts the indexed action according to probability in descending order
                 ordered_action_probs = np.argsort(action_probs)[::-1]
 
                 cur_actor_id = tracker.active_actors[bbox]['actor_id']
+
+                #creates a list of all current actor id in the frame
+                all_current_actor_id.append(cur_actor_id)
+
                 print("Person %i" % cur_actor_id)
 
                 cur_results = []
@@ -166,22 +173,35 @@ def main():
                     TOP_ACTIONS_DICT[action_key] = [act.ACTION_DESCRIPTION[action_key], action_probs[action_key]]
                 
                 #appends description and action probablity to current results.
-                #prints output in the terminal
                 for action_key in TOP_ACTIONS_DICT: 
                     top_action_prob = TOP_ACTIONS_DICT[action_key][1]
                     top_action_description = TOP_ACTIONS_DICT[action_key][0] 
-
                     print('\t {}: {:.3f}'.format(top_action_description, top_action_prob)) # run/jog: 0.140
                     cur_results.append((top_action_description, top_action_prob))
 
                 #to determine what is the likely overall action based on the top action list and their probabilities
                 overall_action_description, overall_action_prob = get_overall_action(TOP_ACTIONS_DICT)
 
+                #updates and store the overall action history 
+                tracker.update_actor_overall_action_history(cur_actor_id, overall_action_description)
+
+                #check overall_action_history for any previous run/jog
+                #if yes, override the overall_action_description with run/jog
+                if "run/jog" in tracker.actor_overall_action_history[cur_actor_id] and overall_action_description != 'run/jog':
+                    print("OVERIDE >>>> run/jog")
+                    overall_action_description, overall_action_prob = "run/jog", -99.0
+
                 #Append overall_action_description to cur_results
                 print('\t Overall: {}, {:.3f}'.format(overall_action_description, overall_action_prob))
                 cur_results.append((overall_action_description, overall_action_prob))
 
                 prob_dict[cur_actor_id] = cur_results 
+
+            
+            #clean-up activates at every frame where the action detection is performed.
+            print(all_current_actor_id)
+            tracker.cleanup_actor_overall_action_history(all_current_actor_id)  
+
 
             t4 = time.time(); print('action %.2f seconds' % (t4-t3))
         
@@ -227,7 +247,7 @@ def get_overall_action(action_dict):
             walk_present = True
     
     if walk_present and run_jog_present and carry_present:
-        top_action = ["run/jog", -99]
+        top_action = ["run/jog", -99.0]
 
     return top_action
 
