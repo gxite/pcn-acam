@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+import statistics
 
 
 class Object_Detector():
@@ -65,6 +66,7 @@ from tools.generate_detections import create_box_encoder
 from deep_sort import nn_matching
 from deep_sort.detection import Detection
 from deep_sort.tracker import Tracker as ds_Tracker
+from collections import OrderedDict 
 
 MODEL_CKPT = "./object_detection/deep_sort/weights/mars-small128.pb"
 
@@ -84,28 +86,92 @@ class Tracker():
         self.tracker = ds_Tracker(metric, max_iou_distance=0.7, max_age=200, n_init=5)
         self.score_th = 0.40
 
-        #overall activity history for active actors.
-        self.actor_overall_action_history = {}
+        #stores all of the evaluated actor's action from all frames.
+        self.all_actor_action_history = {}
 
-    def update_actor_overall_action_history(self, actor_id, overall_action):
-        if self.actor_overall_action_history:
-            if actor_id in self.actor_overall_action_history: 
-               self.actor_overall_action_history[actor_id].append(overall_action)
+    def update_all_actor_action_history(self, actor_id, overall_action):
+        if self.all_actor_action_history:
+            if actor_id in self.all_actor_action_history: 
+               self.all_actor_action_history[actor_id].append(overall_action)
             else:
-               self.actor_overall_action_history[actor_id] = [overall_action,]                 
+               self.all_actor_action_history[actor_id] = [overall_action,]                 
         else: 
-            self.actor_overall_action_history[actor_id] = [overall_action,]
-        print(self.actor_overall_action_history)
+            self.all_actor_action_history[actor_id] = [overall_action,]
+        
             
-    def cleanup_actor_overall_action_history(self, all_current_actor_id):
+    def cleanup_all_actor_action_history(self): #, all_current_actor_id):
+        all_current_actor_id = self.get_all_current_actor_id()
         to_cleanup = []
-        for active in self.actor_overall_action_history: #for each key in actor_overall_action_history
+        for active in self.all_actor_action_history: #for each key in all_actor_action_history
             if active not in all_current_actor_id:
                 to_cleanup.append(active)
-
         for item in to_cleanup:
-            self.actor_overall_action_history.pop(item)
-        print("CLEANUP ",self.actor_overall_action_history)
+            self.all_actor_action_history.pop(item)
+
+
+
+    def get_all_action_tally_at_frame(self):
+        action_untracked = {} #21/08/2019 collects all untracked action tally.
+        action_tally = {
+        "run/jog":0,
+        "sit":0,
+        "stand":0,
+        "walk":0,
+        "ride (e.g., a bike, a car, a horse)":0}
+
+        current_frame = self.frame_no 
+        all_current_actor_id = self.get_all_current_actor_id()
+        for actor_id in all_current_actor_id:
+            overall_action = self.get_actor_overall_action(actor_id)
+            try:
+                action_tally[overall_action] += 1
+            except KeyError:
+                import pdb as pb
+                pb.set_trace()
+
+                if overall_action in action_untracked:
+                    action_untracked[overall_action] += 1
+                    
+                else:
+                    action_untracked[overall_action] = 1
+                print(action_untracked)
+
+        return action_tally, current_frame, action_untracked
+
+
+    def get_actor_overall_action(self,actor_id):
+        #overall_action = statistics.mode(self.all_actor_action_history[actor_id])
+        action_list = self.all_actor_action_history[actor_id] 
+        count_dict = OrderedDict() #order is important
+        highest_count = 0
+        overall_action = ""
+
+        #count action
+        for action in action_list:
+            if action not in count_dict:
+                count_dict[action] = 1
+            else:
+                count_dict[action] += 1
+        
+        #find what is the highest count
+        for key in count_dict:
+            if count_dict[key] > highest_count:
+                highest_count = count_dict[key]
+        
+        #return the lastest entry in count_dict with the highest count
+        '''this should resolve the issue of no unique mode in action_list'''
+        for key in reversed(count_dict):
+            if count_dict[key] == highest_count:
+                overall_action = key
+        return overall_action
+
+    def get_all_current_actor_id(self):
+        all_current_actor_id = []
+        for actor in self.active_actors:
+            actor_id = actor['actor_id']
+            all_current_actor_id.append(actor_id)
+        return all_current_actor_id
+
 
     def get_area(self, bbox):
         '''Argument format: [y-min,x-min,y-max,x-max] '''
@@ -116,14 +182,17 @@ class Tracker():
         return area
 
     def update_tracker(self, detection_info, frame):
-        ''' Takes the frame and the results from the object detection
-            Updates the tracker with the current detections and creates new tracks
+        ''' 
+        Takes the frame and the results from the object detection
+        Updates the tracker with the current detections and creates new tracks
         '''
         boxes, scores, classes, num_detections = detection_info
         
         #This threshold filters out objects detected that have very small bounding boxes.
-        #Small bounding boxes indicates that the object is far away in the background, with relatively low image resolution.
-        #Processing these objects with action detection will generally result in false detections and creates unwanted noise in the dataset. 
+        '''
+        Small bounding boxes indicates that the object is far away in the background, with relatively low image resolution.
+        Processing these objects with action detection will generally result in false detections and creates unwanted noise in the dataset. 
+        '''
         BOUNDING_BOX_AREA_THRESHOLD = 0.001
 
         #creates new np.array boxes_area out of the coordinate points of the bboxes in the np.array boxes 
@@ -193,7 +262,6 @@ class Tracker():
             del self.frame_history[0]
 
         self.frame_no += 1
-
 
     def generate_all_rois(self):
         no_actors = len(self.active_actors)
