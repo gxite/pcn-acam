@@ -126,15 +126,11 @@ class Tracker():
             try:
                 action_tally[overall_action] += 1
             except KeyError:
-                import pdb as pb
-                pb.set_trace()
-
                 if overall_action in action_untracked:
                     action_untracked[overall_action] += 1
                     
                 else:
                     action_untracked[overall_action] = 1
-                print(action_untracked)
 
         return action_tally, current_frame, action_untracked
 
