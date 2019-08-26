@@ -181,45 +181,45 @@ def main():
                 #determines and updates action of actor in frame
                 actor_action_in_frame_description, actor_action_in_frame_prob = eval_actor_action_in_frame(TOP_ACTIONS_DECTECTED)
 
-                #updates and store the overall action history 
+                #updates and store the ovserall action history 
                 tracker.update_all_actor_action_history(cur_actor_id, actor_action_in_frame_description)
 
                 #check overall_action_history for any previous run/jog
                 #if yes, override the actor_action_in_frame_description with run/jog
-                if "run/jog" in tracker.all_actor_action_history[cur_actor_id] and actor_action_in_frame_description != 'run/jog':
+                '''if "run/jog" in tracker.all_actor_action_history[cur_actor_id] and actor_action_in_frame_description != 'run/jog':
                     print("OVERIDE >>>> run/jog")
                     if DEBUG:
                         log_file.write("OVERIDE >>>> run/jog \n")
-                    actor_action_in_frame_description, actor_action_in_frame_prob = "run/jog", -99.0
+                    actor_action_in_frame_description, actor_action_in_frame_prob = "run/jog", -99.0'''
 
                 #Append actor_action_in_frame_description to cur_results
-                print("\t Actor's action is <{}>".format(actor_action_in_frame_description))
                 if DEBUG:
-                    log_file.write("\t Actor's action is <{}> \n".format(actor_action_in_frame_description))
+                    log_file.write("\t Person's action is <{}> \n".format(actor_action_in_frame_description))
                 cur_results.append((actor_action_in_frame_description, actor_action_in_frame_prob))
 
                 prob_dict[cur_actor_id] = cur_results 
             
-            print("All current actor IDs: ", tracker.get_all_current_actor_id())
             if DEBUG:
-                log_file.write("All current actor IDs: " + str(tracker.get_all_current_actor_id()) + " \n")
+                log_file.write("All current Person IDs: " + str(tracker.get_all_current_actor_id()) + " \n")
 
-            print("Pre-Cleanup >> ", tracker.all_actor_action_history)
             if DEBUG:
-                log_file.write("Pre-Cleanup >> " + str(tracker.all_actor_action_history) + " \n")
+                log_file.write("Pre-Cleanup >>  \n")
+                for entry in tracker.all_actor_action_history.items():
+                    log_file.write("\t Person No." + str(entry)[1:-1]  + " \n")
+
 
             tracker.cleanup_all_actor_action_history()
 
-            print("Cleanup >> ", tracker.all_actor_action_history)
             if DEBUG:
-                log_file.write("Cleanup >> " + str(tracker.all_actor_action_history) + " \n")
+                log_file.write("After-Cleanup >>  \n")
+                for entry in tracker.all_actor_action_history.items():
+                    log_file.write("\t Person No." + str(entry)[1:-1]  + " \n")
 
             action_tally, current_frame, action_untracked = tracker.get_all_action_tally_at_frame()
-            print("Action Tally {}, at frame {}. ".format(action_tally, current_frame))
-            print("Untracked Actions {}, at frame {}. ".format(action_untracked, current_frame))
             if DEBUG:
                 log_file.write("Action Tally {}, at frame {}. ".format(action_tally, current_frame) + " \n")
                 log_file.write("Untracked Actions {}, at frame {}. ".format(action_untracked, current_frame) + " \n")
+                log_file.write("\n")
 
             t4 = time.time(); print('action %.2f seconds' % (t4-t3))
             
