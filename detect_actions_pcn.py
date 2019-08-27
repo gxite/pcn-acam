@@ -41,7 +41,7 @@ def main():
     tracker = obj.Tracker()
 
     #Frequency of action detection
-    action_freq = 8
+    action_freq = 9
 
     print("Reading video file %s" % video_path)
     print('Running actions every %i frame' % action_freq)
@@ -99,23 +99,19 @@ def main():
         #--Object Detection--#
 
         current_video_frame_expanded = np.expand_dims(current_video_frame, axis=0)
-
         t1 = time.time()
 
         #calling of the object detection functions.
         detection_list = obj_detector.detect_objects_in_np(current_video_frame_expanded)
         detection_info = [info[0] for info in detection_list]
-
         t2 = time.time(); print('obj det %.2f seconds' % (t2-t1))
 
         #Tracker
-        tracker.update_tracker(detection_info, current_video_frame)
-        
+        tracker.update_tracker(detection_info, current_video_frame)     
         t3 = time.time(); print('tracker %.2f seconds' % (t3-t2))
         num_actors = len(tracker.active_actors)
 
         #--Action detection--#
-
         if tracker.active_actors and frames_count % action_freq == 0:
             probs = []
 
@@ -184,20 +180,14 @@ def main():
                 #updates and store the ovserall action history 
                 tracker.update_all_actor_action_history(cur_actor_id, actor_action_in_frame_description)
 
-                #check overall_action_history for any previous run/jog
-                #if yes, override the actor_action_in_frame_description with run/jog
-                '''if "run/jog" in tracker.all_actor_action_history[cur_actor_id] and actor_action_in_frame_description != 'run/jog':
-                    print("OVERIDE >>>> run/jog")
-                    if DEBUG:
-                        log_file.write("OVERIDE >>>> run/jog \n")
-                    actor_action_in_frame_description, actor_action_in_frame_prob = "run/jog", -99.0'''
-
                 #Append actor_action_in_frame_description to cur_results
                 if DEBUG:
                     log_file.write("\t Person's action is <{}> \n".format(actor_action_in_frame_description))
                 cur_results.append((actor_action_in_frame_description, actor_action_in_frame_prob))
 
+                #stores all detection result of an actor
                 prob_dict[cur_actor_id] = cur_results 
+                print(prob_dict)
             
             if DEBUG:
                 log_file.write("All current Person IDs: " + str(tracker.get_all_current_actor_id()) + " \n")
@@ -224,15 +214,19 @@ def main():
             t4 = time.time(); print('action %.2f seconds' % (t4-t3))
             
         
-        if frames_count > 16:
+        #Output pkl.
+        #action_tally, current_frame, action_untracked = tracker.get_all_action_tally_at_frame()
+
+        #Visualize 
+        if frames_count > action_freq*2:
             out_img = visualize_detection_results(tracker.frame_history[-16], tracker.active_actors, prob_dict,frames_count)
             if display: 
-                cv2.imshow('results', out_img[:,:,::-1])
-                cv2.waitKey(10)
+                #cv2.imshow('results', out_img[:,:,::-1])
+                #cv2.waitKey(10)
             else:
-                writer.write(out_img)
-                cv2.imwrite(out_img_path,out_img)
-        
+                writer.write(out_img)  
+
+
         if DEBUG:
             log_file.close()
 
