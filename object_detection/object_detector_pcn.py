@@ -117,7 +117,7 @@ class Tracker():
         "sit":0,
         "stand":0,
         "walk":0,
-        "ride (e.g., a bike, a car, a horse)":0}
+        "ride":0}
 
         current_frame = self.frame_no 
         all_current_actor_id = self.get_all_current_actor_id()

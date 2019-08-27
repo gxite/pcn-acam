@@ -12,36 +12,35 @@ import time
 #PCN Project related 
 import object_detection.object_detector_pcn as obj
 import action_detection.action_detector_pcn as act
+import library.util as util
 
 DEBUG = True
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-v', '--video_path', type=str, required=False, default="")
-    parser.add_argument('-d', '--display', type=str, required=False, default="True")
     args = parser.parse_args()
-    display = (args.display == "True" or args.display == "true")
 
     video_path = args.video_path
     basename = os.path.basename(video_path).split('.')[0]
     out_vid_path = "./output_videos/%s_output.mp4" % basename
-    out_img_path = "./output_videos/%s_output.jpg" % basename
+    out_pkl_path = "./output_videos/%s_output.pkl" % basename
     log_output_path = "./output_videos/{}_log_file.txt".format(basename)
 
     main_folder = './'
 
     #obj_detection_model =  'ssd_mobilenet_v2_coco_2018_03_29' 
     obj_detection_model =  'faster_rcnn_nas_coco_2018_01_28'
-
     obj_detection_graph = os.path.join("object_detection", "weights", obj_detection_model, "frozen_inference_graph.pb")
     
     print("Loading object detection model at %s" % obj_detection_graph)
     obj_detector = obj.Object_Detector(obj_detection_graph)
 
     tracker = obj.Tracker()
+    action_out = util.Output()
 
     #Frequency of action detection
-    action_freq = 9
+    action_freq = 15 
 
     print("Reading video file %s" % video_path)
     print('Running actions every %i frame' % action_freq)
@@ -55,9 +54,8 @@ def main():
     frames_len = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     
     #Sets the path for output video and initializes VideoWriter
-    if not display:
-        writer = cv2.VideoWriter(out_vid_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (W,H))
-        print("Writing output to %s" % out_vid_path)
+    writer = cv2.VideoWriter(out_vid_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (W,H))
+    print("Writing output to %s" % out_vid_path)
 
     #Sets the action detector model & checkpoint
     act_detector = act.Action_Detector('soft_attn')
@@ -94,7 +92,7 @@ def main():
             continue
         
         if DEBUG:
-            log_file.write("frames_count: %i \n" %frames_count)
+            log_file.write("frames_count: %i     | " %frames_count)
 
         #--Object Detection--#
 
@@ -104,12 +102,18 @@ def main():
         #calling of the object detection functions.
         detection_list = obj_detector.detect_objects_in_np(current_video_frame_expanded)
         detection_info = [info[0] for info in detection_list]
-        t2 = time.time(); print('obj det %.2f seconds' % (t2-t1))
+        t2 = time.time(); print('obj det %.2f s' % (t2-t1))
+
+        if DEBUG:
+            log_file.write('obj det %.2f s  | ' % (t2-t1))
 
         #Tracker
         tracker.update_tracker(detection_info, current_video_frame)     
-        t3 = time.time(); print('tracker %.2f seconds' % (t3-t2))
+        t3 = time.time(); print('tracker %.2f s' % (t3-t2))
         num_actors = len(tracker.active_actors)
+
+        if DEBUG:
+            log_file.write('tracker %.2f s \n' % (t3-t2))
 
         #--Action detection--#
         if tracker.active_actors and frames_count % action_freq == 0:
@@ -187,16 +191,12 @@ def main():
 
                 #stores all detection result of an actor
                 prob_dict[cur_actor_id] = cur_results 
-                print(prob_dict)
             
             if DEBUG:
                 log_file.write("All current Person IDs: " + str(tracker.get_all_current_actor_id()) + " \n")
-
-            if DEBUG:
                 log_file.write("Pre-Cleanup >>  \n")
                 for entry in tracker.all_actor_action_history.items():
                     log_file.write("\t Person No." + str(entry)[1:-1]  + " \n")
-
 
             tracker.cleanup_all_actor_action_history()
 
@@ -209,30 +209,30 @@ def main():
             if DEBUG:
                 log_file.write("Action Tally {}, at frame {}. ".format(action_tally, current_frame) + " \n")
                 log_file.write("Untracked Actions {}, at frame {}. ".format(action_untracked, current_frame) + " \n")
+
+            t4 = time.time(); print('action det %.2f s' % (t4-t3))
+            if DEBUG:
+                log_file.write('action det %.2f s \n' % (t4-t3))
                 log_file.write("\n")
-
-            t4 = time.time(); print('action %.2f seconds' % (t4-t3))
             
-        
-        #Output pkl.
-        #action_tally, current_frame, action_untracked = tracker.get_all_action_tally_at_frame()
+        if frames_count % (action_freq*2) ==0:
+            action_tally, current_frame, action_untracked = tracker.get_all_action_tally_at_frame()
+            action_out.add(action_tally)
+        else:
+            action_out.add(None)
 
-        #Visualize 
-        if frames_count > action_freq*2:
-            out_img = visualize_detection_results(tracker.frame_history[-16], tracker.active_actors, prob_dict,frames_count)
-            if display: 
-                #cv2.imshow('results', out_img[:,:,::-1])
-                #cv2.waitKey(10)
-            else:
-                writer.write(out_img)  
-
+        #Visualize every frame after (action_freq*2) 
+        #argument for frame history is changed from -16 to -action_freq*2
+        if frames_count > action_freq*2: 
+            out_img = visualize_detection_results(tracker.frame_history[-action_freq*2], tracker.active_actors, prob_dict,frames_count)
+            writer.write(out_img)  
 
         if DEBUG:
             log_file.close()
 
-    if not display:
-        cap.release()
-        writer.release()   
+    action_out.dump_pickle(out_pkl_path)
+    cap.release()
+    writer.release()   
 
 #returns a summary of detected actions within the current frame
 def get_all_actions_in_frame():
@@ -259,7 +259,6 @@ def eval_actor_action_in_frame(action_dict):
         top_action = ["run/jog", -99.0] #dummy variable -99.0 for probability float
 
     return top_action
-
 
 np.random.seed(10)
 COLORS = np.random.randint(0, 255, [1000, 3])
@@ -330,6 +329,5 @@ def draw_label(image, text, top_left_coor, font=cv2.FONT_HERSHEY_SIMPLEX, font_s
     cv2.rectangle(image, top_left_coor, (top_left_coor[0] + text_width, top_left_coor[1] - text_height), highlight, cv2.FILLED)
     cv2.putText(image, text, (top_left_coor[0], top_left_coor[1]), font, font_size, (255, 255, 255), font_weight)
   
-
 if __name__ == '__main__':
     main()
