@@ -23,9 +23,9 @@ def main():
 
     video_path = args.video_path
     basename = os.path.basename(video_path).split('.')[0]
-    out_vid_path = "./output_videos/%s_output.mp4" % basename
-    out_pkl_path = "./output_videos/%s_output.pkl" % basename
-    log_output_path = "./output_videos/{}_log_file.txt".format(basename)
+    out_vid_path = "./output_videos/%s.VIS.mp4" % basename
+    out_pkl_path = "./output_videos/%s.ACT.pkl" % basename
+    log_output_path = "./output_videos/{}.LOG.txt".format(basename)
 
     main_folder = './'
 
@@ -40,7 +40,7 @@ def main():
     action_out = util.Output()
 
     #Frequency of action detection
-    action_freq = 15 
+    action_freq = 8 
 
     print("Reading video file %s" % video_path)
     print('Running actions every %i frame' % action_freq)
@@ -214,12 +214,19 @@ def main():
             if DEBUG:
                 log_file.write('action det %.2f s \n' % (t4-t3))
                 log_file.write("\n")
-            
-        if frames_count % (action_freq*2) ==0:
+
+        elif frames_count > action_freq*2 and frames_count % action_freq  == 0: #ie no active actors detected in frame
+            action_tally, current_frame, action_untracked = tracker.get_all_action_tally_at_frame()
+            if DEBUG:
+                log_file.write("Action Tally {}, at frame {}. ".format(action_tally, current_frame) + " \n")
+                log_file.write("Untracked Actions {}, at frame {}. ".format(action_untracked, current_frame) + " \n")
+  
+        #appends a result every x frame. x = action_freqency
+        if frames_count > action_freq*2 and frames_count % action_freq == 0:
             action_tally, current_frame, action_untracked = tracker.get_all_action_tally_at_frame()
             action_out.add(action_tally)
         else:
-            action_out.add(None)
+            action_out.add({})
 
         #Visualize every frame after (action_freq*2) 
         #argument for frame history is changed from -16 to -action_freq*2
