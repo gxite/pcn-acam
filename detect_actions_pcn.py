@@ -14,7 +14,9 @@ import object_detection.object_detector_pcn as obj
 import action_detection.action_detector_pcn as act
 import library.util as util
 
-DEBUG = True
+LOG_FILE = True
+#Frequency of action detection
+ACTION_FREQ = 16 
 
 def main():
     parser = argparse.ArgumentParser()
@@ -39,11 +41,8 @@ def main():
     tracker = obj.Tracker()
     action_out = util.Output()
 
-    #Frequency of action detection
-    action_freq = 8 
-
     print("Reading video file %s" % video_path)
-    print('Running actions every %i frame' % action_freq)
+    print('Running actions every %i frame' % ACTION_FREQ)
 
     #Configures the opencv cap
     cap = cv2.VideoCapture(video_path)
@@ -61,7 +60,7 @@ def main():
     act_detector = act.Action_Detector('soft_attn')
     ckpt_name = 'model_ckpt_soft_attn_pooled_cosine_drop_ava-130'
 
-    memory_size = act_detector.timesteps - action_freq
+    memory_size = act_detector.timesteps - ACTION_FREQ
 
     #Sets variables for action detectors
     updated_frames, temporal_rois, temporal_roi_batch_indices, cropped_frames = act_detector.crop_tubes_in_tf_with_memory([T,H,W,3], memory_size)
@@ -77,10 +76,10 @@ def main():
 
         if frames_count == 0:
             #Creates a txt log file
-            if DEBUG:
+            if LOG_FILE:
                 log_file = open(log_output_path, "w+")
         else:
-            if DEBUG:
+            if LOG_FILE:
                 log_file = open(log_output_path, "a")
         
         return_value, current_video_frame = cap.read() 
@@ -91,7 +90,7 @@ def main():
         else:
             continue
         
-        if DEBUG:
+        if LOG_FILE:
             log_file.write("frames_count: %i     | " %frames_count)
 
         #--Object Detection--#
@@ -104,7 +103,7 @@ def main():
         detection_info = [info[0] for info in detection_list]
         t2 = time.time(); print('obj det %.2f s' % (t2-t1))
 
-        if DEBUG:
+        if LOG_FILE:
             log_file.write('obj det %.2f s  | ' % (t2-t1))
 
         #Tracker
@@ -112,14 +111,14 @@ def main():
         t3 = time.time(); print('tracker %.2f s' % (t3-t2))
         num_actors = len(tracker.active_actors)
 
-        if DEBUG:
+        if LOG_FILE:
             log_file.write('tracker %.2f s \n' % (t3-t2))
 
         #--Action detection--#
-        if tracker.active_actors and frames_count % action_freq == 0:
+        if tracker.active_actors and frames_count % ACTION_FREQ == 0:
             probs = []
 
-            cur_input_sequence = np.expand_dims(np.stack(tracker.frame_history[-action_freq:], axis=0), axis=0)
+            cur_input_sequence = np.expand_dims(np.stack(tracker.frame_history[-ACTION_FREQ:], axis=0), axis=0)
 
             rois_np, temporal_rois_np = tracker.generate_all_rois()
 
@@ -131,7 +130,7 @@ def main():
                 rois_np = rois_np[:MAX_NUM_ACTORS]
                 temporal_rois_np = temporal_rois_np[:MAX_NUM_ACTORS]
 
-            feed_dict = {updated_frames:cur_input_sequence, # only update last #action_freq frames
+            feed_dict = {updated_frames:cur_input_sequence, # only update last #ACTION_FREQ frames
                          temporal_rois: temporal_rois_np,
                          temporal_roi_batch_indices: np.zeros(num_actors),
                          rois:rois_np, 
@@ -156,7 +155,7 @@ def main():
                 cur_actor_id = tracker.active_actors[bbox]['actor_id']
 
                 print("Person %i" % cur_actor_id)
-                if DEBUG:
+                if LOG_FILE:
                     log_file.write("Person %i \n" % cur_actor_id)
 
                 cur_results = []
@@ -173,7 +172,7 @@ def main():
                     action_detection_description = TOP_ACTIONS_DECTECTED[action_key][0] 
 
                     print('\t {}: {:.3f}'.format(action_detection_description, action_detection_prob))
-                    if DEBUG:
+                    if LOG_FILE:
                         log_file.write('\t {}: {:.3f} \n'.format(action_detection_description, action_detection_prob))
 
                     cur_results.append((action_detection_description, action_detection_prob))
@@ -185,14 +184,14 @@ def main():
                 tracker.update_all_actor_action_history(cur_actor_id, actor_action_in_frame_description)
 
                 #Append actor_action_in_frame_description to cur_results
-                if DEBUG:
+                if LOG_FILE:
                     log_file.write("\t Person's action is <{}> \n".format(actor_action_in_frame_description))
                 cur_results.append((actor_action_in_frame_description, actor_action_in_frame_prob))
 
                 #stores all detection result of an actor
                 prob_dict[cur_actor_id] = cur_results 
             
-            if DEBUG:
+            if LOG_FILE:
                 log_file.write("All current Person IDs: " + str(tracker.get_all_current_actor_id()) + " \n")
                 log_file.write("Pre-Cleanup >>  \n")
                 for entry in tracker.all_actor_action_history.items():
@@ -200,41 +199,41 @@ def main():
 
             tracker.cleanup_all_actor_action_history()
 
-            if DEBUG:
+            if LOG_FILE:
                 log_file.write("After-Cleanup >>  \n")
                 for entry in tracker.all_actor_action_history.items():
                     log_file.write("\t Person No." + str(entry)[1:-1]  + " \n")
 
             action_tally, current_frame, action_untracked = tracker.get_all_action_tally_at_frame()
-            if DEBUG:
+            if LOG_FILE:
                 log_file.write("Action Tally {}, at frame {}. ".format(action_tally, current_frame) + " \n")
                 log_file.write("Untracked Actions {}, at frame {}. ".format(action_untracked, current_frame) + " \n")
 
             t4 = time.time(); print('action det %.2f s' % (t4-t3))
-            if DEBUG:
+            if LOG_FILE:
                 log_file.write('action det %.2f s \n' % (t4-t3))
                 log_file.write("\n")
 
-        elif frames_count > action_freq*2 and frames_count % action_freq  == 0: #ie no active actors detected in frame
+        elif frames_count > ACTION_FREQ*2 and frames_count % ACTION_FREQ  == 0: #ie no active actors detected in frame
             action_tally, current_frame, action_untracked = tracker.get_all_action_tally_at_frame()
-            if DEBUG:
+            if LOG_FILE:
                 log_file.write("Action Tally {}, at frame {}. ".format(action_tally, current_frame) + " \n")
                 log_file.write("Untracked Actions {}, at frame {}. ".format(action_untracked, current_frame) + " \n")
   
-        #appends a result every x frame. x = action_freqency
-        if frames_count > action_freq*2 and frames_count % action_freq == 0:
+        #appends a result every x frame. x = ACTION_FREQency
+        if frames_count > ACTION_FREQ*2 and frames_count % ACTION_FREQ == 0:
             action_tally, current_frame, action_untracked = tracker.get_all_action_tally_at_frame()
             action_out.add(action_tally)
         else:
             action_out.add({})
 
-        #Visualize every frame after (action_freq*2) 
-        #argument for frame history is changed from -16 to -action_freq*2
-        if frames_count > action_freq*2: 
-            out_img = visualize_detection_results(tracker.frame_history[-action_freq*2], tracker.active_actors, prob_dict,frames_count)
+        #Visualize every frame after (ACTION_FREQ*2) 
+        #argument for frame history is changed from -16 to -ACTION_FREQ*2
+        if frames_count > ACTION_FREQ*2: 
+            out_img = visualize_detection_results(tracker.frame_history[-ACTION_FREQ*2], tracker.active_actors, prob_dict,frames_count)
             writer.write(out_img)  
 
-        if DEBUG:
+        if LOG_FILE:
             log_file.close()
 
     action_out.dump_pickle(out_pkl_path)
@@ -287,7 +286,7 @@ def visualize_detection_results(img_np, active_actors, prob_dict,frames_count):
         object_class = 1   # 'person' has a id of 1 in OBJECT_STRINGS
 
         try:
-            cur_box, cur_score, cur_class = cur_actor['all_boxes'][-16], cur_actor['all_scores'][0], object_class
+            cur_box, cur_score, cur_class = cur_actor['all_boxes'][-ACTION_FREQ*2], cur_actor['all_scores'][0], object_class
         except IndexError:
             continue
         
@@ -305,7 +304,7 @@ def visualize_detection_results(img_np, active_actors, prob_dict,frames_count):
         conf = cur_score
         label = obj.OBJECT_STRINGS[cur_class]['name']
         message = '%s_%i: %% %.2f' % (label, actor_id,conf)
-        action_message_list = ["%s:%.3f" % (actres[0][0:7], actres[1]) for actres in cur_act_results if actres[1]>action_th]
+        action_message_list = ["%s:%.3f" % (action[0][0:7], action[1]) for action in cur_act_results if action[1]>action_th]
         #15/08/2019 MOD
         #action_summary = cur_act_results[-1][0]
         action_summary = cur_act_results[-1][0] if cur_act_results else "NO_ACTION"
@@ -332,7 +331,9 @@ def visualize_detection_results(img_np, active_actors, prob_dict,frames_count):
     return disp_img
 
 def draw_label(image, text, top_left_coor, font=cv2.FONT_HERSHEY_SIMPLEX, font_size=0.5, font_weight=1, highlight=(0, 0, 0)):
+    
     (text_width, text_height), baseline = cv2.getTextSize(text, font, font_size, font_weight)
+    
     cv2.rectangle(image, top_left_coor, (top_left_coor[0] + text_width, top_left_coor[1] - text_height), highlight, cv2.FILLED)
     cv2.putText(image, text, (top_left_coor[0], top_left_coor[1]), font, font_size, (255, 255, 255), font_weight)
   
