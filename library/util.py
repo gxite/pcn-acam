@@ -13,6 +13,3 @@ class Output():
         pkl.dump(self.payload, open(out_pkl_path, 'wb'))
         
 
-def load_pickle(pickle_path):
-  """Loads pickle from given pickle path"""
-  return pkl.load(open(pickle_path, 'rb'))

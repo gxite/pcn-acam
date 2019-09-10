@@ -219,17 +219,23 @@ def main():
             if LOG_FILE:
                 log_file.write("Action Tally {}, at frame {}. ".format(action_tally, current_frame) + " \n")
                 log_file.write("Untracked Actions {}, at frame {}. ".format(action_untracked, current_frame) + " \n")
-  
-        #appends a result every x frame. x = ACTION_FREQency
+
+        if frames_count == ACTION_FREQ:
+            if LOG_FILE:
+                log_file.write("**********Note!!!The first action detection will not be written to the pkl file.*********"+ " \n")
+                log_file.write("\n")
+
+
+        #appends a result every x frame. x = ACTION_FREQ
         if frames_count > ACTION_FREQ*2 and frames_count % ACTION_FREQ == 0:
             action_tally, current_frame, action_untracked = tracker.get_all_action_tally_at_frame()
             action_out.add(action_tally)
         else:
             action_out.add({})
 
-        #Visualize every frame after (ACTION_FREQ*2) 
+        
         #argument for frame history is changed from -16 to -ACTION_FREQ*2
-        if frames_count > ACTION_FREQ*2: 
+        if frames_count > ACTION_FREQ*2: #Visualize every frame after (ACTION_FREQ*2) 
             out_img = visualize_detection_results(tracker.frame_history[-ACTION_FREQ*2], tracker.active_actors, prob_dict,frames_count)
             writer.write(out_img)  
 
@@ -269,8 +275,8 @@ def eval_actor_action_in_frame(action_dict):
 np.random.seed(10)
 COLORS = np.random.randint(0, 255, [1000, 3])
 def visualize_detection_results(img_np, active_actors, prob_dict,frames_count):
-    score_th = 0.30
-    action_th = 0
+    score_th =  0 #0.30
+    #action_th = 0
 
     # copy the original image first
     disp_img = np.copy(img_np)
@@ -302,9 +308,10 @@ def visualize_detection_results(img_np, active_actors, prob_dict,frames_count):
         bottom = int(H * bottom)
 
         conf = cur_score
-        label = obj.OBJECT_STRINGS[cur_class]['name']
-        message = '%s_%i: %% %.2f' % (label, actor_id,conf)
-        action_message_list = ["%s:%.3f" % (action[0][0:7], action[1]) for action in cur_act_results if action[1]>action_th]
+        #label = obj.OBJECT_STRINGS[cur_class]['name']
+        label = "P"
+        message = '%s_%i:%.2f' % (label, actor_id,conf)
+        #action_message_list = ["%s:%.3f" % (action[0][0:7], action[1]) for action in cur_act_results if action[1]>action_th]
         #15/08/2019 MOD
         #action_summary = cur_act_results[-1][0]
         action_summary = cur_act_results[-1][0] if cur_act_results else "NO_ACTION"
@@ -322,11 +329,12 @@ def visualize_detection_results(img_np, active_actors, prob_dict,frames_count):
         cv2.rectangle(disp_img, (left, top-int(font_size*40)), (right,top), color.tolist(), -1)
         cv2.putText(disp_img, message, (left, top-12), 0, font_size, (np.array([255,255,255])-color).tolist(), 1)
 
+
         #position and writes the action messages.
-        cv2.rectangle(disp_img, (left, top), (right,top+10*len(action_message_list)), color.tolist(), -1)
+        '''cv2.rectangle(disp_img, (left, top), (right,top+10*len(action_message_list)), color.tolist(), -1)
         for aa, action_message in enumerate(action_message_list):
             offset = aa*10
-            cv2.putText(disp_img, action_message, (left, top+5+offset), 0, font_size, (np.array([255,255,255])-color).tolist(), 1)
+            cv2.putText(disp_img, action_message, (left, top+5+offset), 0, font_size, (np.array([255,255,255])-color).tolist(), 1)'''
 
     return disp_img
 

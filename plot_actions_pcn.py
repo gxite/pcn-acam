@@ -13,58 +13,38 @@ import os
 
 GEOD = Geodesic.WGS84 # define the WGS84 ellipsoid
 PROXIMITY_THRESHOLD = 10
+COLUMN_TITLES = ['Latitude', 'Longitude', 'run/jog', 'sit', 'stand', 'walk', 'ride']
 
-def mark_null_coordinates(track_points):
-  """ Trims off initial <trkpt lat="0" lon="0"> points """
-  next_i = 0
-  while next_i < len(track_points):
-    trkpt = track_points[next_i]
-    if trkpt.latitude != 0.0 and trkpt.longitude != 0.0:
-      break
-    next_i += 1
-  
-  if next_i:
-    # mark coordinates
-    for i in range(next_i):
-      track_points[i] = False
-  
-  return next_i
+def main():
+    parser = argparse.ArgumentParser(description="Action plotter")
+    parser.add_argument('--input', '-i', type=str, help='Input directory the pkl,gpx directory is held.')
+    args = parser.parse_args()
 
-def mark_outliers(start, track_points, qualification_length=770):
-  """ Trims off initial outlier points attributed by poor GPS reception """
-  next_i = start # start off where mark_null_coordinates() ended
-  while next_i < len(track_points) - 1:
-    # if current pair is within bounds
-    if not is_outlier(track_points[next_i], track_points[next_i+1]):
-      # check to ensure there are no adjacent outliers within the next qualification_length number of points
-      j = next_i
-      while j < next_i + qualification_length:
-        if j+1 == len(track_points):
-          print('length {}'.format(len(track_points)))
-          raise IndexError('No qualifying length of {} points with proximity threshold {}m exists!'.format(qualification_length, PROXIMITY_THRESHOLD))        
-        # if outlier detected, break out of loop
-        if is_outlier(track_points[j], track_points[j+1]):
-          break
-        j += 1
-      # if all qualification_length number of points does not contain outliers
-      if j == next_i + qualification_length:
-        track_points[start:next_i] = [False] * (next_i - start) # mark coordinates
-        break
-      # else resume scanning at j
-      else:
-        next_i = j
-    else:
-      next_i += 1
+    root_dir = args.input
+    pkl_dir = os.path.join(root_dir,"pkl")
+    gpx_dir = os.path.join(root_dir,"gpx")
+    csv_dir = os.path.join(root_dir,"csv") #output dir
 
-def mark_noisy_coordinates(track_points):
-  end = mark_null_coordinates(track_points) # Mark intial null coordinates
-  mark_outliers(end, track_points)          # Mark initial outliers
+    plot_actions(pkl_dir, gpx_dir,csv_dir)
 
-def is_outlier(trkpt1, trkpt2):
-  """ Returns True if the two points are beyond distance threshold """
-  distance = GEOD.Inverse(trkpt1.latitude, trkpt1.longitude,
-    trkpt2.latitude, trkpt2.longitude)['s12'] # distance between points in meters
-  return distance > PROXIMITY_THRESHOLD
+    #For testing when there are more pkl files available
+"""     pkl_files = get_files(pkl_dir)
+    for i in pkl_files:
+      plot_actions(pkl_dir, gpx_dir,csv_dir) """
+
+def get_files(src_dir):
+    #files = [f[:-4] for f in listdir(src_dir) if isfile(join(src_dir, f))]]
+    files = [f for f in listdir(src_dir) if isfile(join(src_dir, f))]
+
+    files_out = []
+    #removes all the file extensions
+    for f in files:
+        temp = f
+        while(os.path.splitext(temp)[1] != ""):
+            temp = os.path.splitext(temp)[0]
+        files_out.append(temp)
+
+    return files_out
 
 def process_gpx(gpx_path):
   """ Read in GPX file from given path and process its data """
@@ -80,7 +60,7 @@ def process_gpx(gpx_path):
   # 2. Sort trkpts chronologically
   track_points.sort(key=lambda trkpt: trkpt.time)
   # 3. Mark initial noisy coordinates attributed by GPS location fixing
-  #mark_noisy_coordinates(track_points)
+  #--------------------------------------------------------------------------------------------to implement function to verify invalid GPS coordinate
   # 4. Format into coordinates
   coordinates = [[x.latitude, x.longitude, x.time] if x else x for x in track_points]
 
@@ -129,7 +109,78 @@ def load_pickle(pickle_path):
   """Loads pickle from given pickle path"""
   return pkl.load(open(pickle_path, 'rb'))
 
-def plot_actions(pkl_dir, gpx_dir, output_dir):
+def write_csv(rows, output_path, titles=None, delimiter=','):
+  """Writes out rows to csv file given output path"""
+  mode = 'w' 
+  with open(output_path, mode) as csvfile:
+    out_writer = csv.writer(csvfile, delimiter=delimiter)
+    if titles:
+      out_writer.writerow(titles)
+    for row in rows:
+      out_writer.writerow(row)
+
+def plot_csv(rows, output_path):
+  write_csv(rows, output_path, titles=COLUMN_TITLES)
+
+def convolve_to_tail(plot_points):
+  '''plot_points is expected to be in the format [lat,long,run/jog,sit,stand,walk,ride]'''
+
+  head_gps = None
+  plot_points_out = []
+  scores = []
+
+  for point in plot_points:
+    if head_gps is None: #first case
+      head_gps = [point[0],point[1]]
+      scores.append([point[2],point[3],point[4],point[5],point[6]])
+
+    else: #middle cases 
+      tail_gps = [point[0],point[1]]
+      scores.append([point[2],point[3],point[4],point[5],point[6]])
+
+      if distance(head_gps,tail_gps) > PROXIMITY_THRESHOLD:
+        averages = [mean(x) for x in zip(*scores)]
+        plot_points_out.append(tail_gps + averages)
+        head_gps = None # reset
+        scores = [] # reset
+
+    #last case
+  if head_gps:
+    averages = [mean(x) for x in zip(*scores)]
+    plot_points_out.append(tail_gps + averages)
+
+  return plot_points_out
+
+def convolve_to_head(plot_points):
+  '''plot_points is expected to be in the format [lat,long,run/jog,sit,stand,walk,ride]'''
+ 
+  head_gps = None
+  plot_points_out = []
+  scores = []
+
+  for point in plot_points:
+    if head_gps is None: #first case
+        head_gps = [point[0],point[1]]
+        scores.append([point[2],point[3],point[4],point[5],point[6]])
+
+    else: #middle cases 
+      tail_gps = [point[0],point[1]]
+      scores.append([point[2],point[3],point[4],point[5],point[6]])
+
+      if distance(head_gps,tail_gps) > PROXIMITY_THRESHOLD:
+        averages = [mean(x) for x in zip(*scores)]
+        plot_points_out.append(head_gps + averages)
+        head_gps = None # reset
+        scores = [] # reset
+
+      #last case
+  if head_gps:
+    averages = [mean(x) for x in zip(*scores)]
+    plot_points_out.append(head_gps + averages)
+  
+  return plot_points_out
+
+def plot_actions(pkl_dir, gpx_dir, csv_dir):
   '''Outputs a csv file of the detections and its corresponding gps coordinate'''
 
   #uses the files in the pkl directory to generate a list of filenames that is extension free
@@ -141,6 +192,8 @@ def plot_actions(pkl_dir, gpx_dir, output_dir):
     #sets the filepaths for the required files
     pkl_file_path = set_filename_ext(pkl_dir,filename,"pkl")
     gpx_file_path = set_filename_ext(gpx_dir,filename,"gpx")
+    csv_file_path = set_filename_ext(csv_dir,filename, "csv")
+    csv_convolved_file_path = set_filename_ext(csv_dir,filename+"_convolved", "csv")
     
     video_detections = load_pickle(pkl_file_path)
     frame_count = len(video_detections)
@@ -148,36 +201,21 @@ def plot_actions(pkl_dir, gpx_dir, output_dir):
     coordinates = process_gpx(gpx_file_path)
     '''[lat,long,timestamp]'''
 
-    out= []
+    plot_points= []
 
     for frame in range(0,frame_count-1):
-      
-      if video_detections[frame]: # appends location only if there is action detection.
+      if video_detections[frame]: # appends location only if there is action detection. ie every 8 frames
         detection_location = get_corresponding_location(frame, frame_count, coordinates)
-        out.append([detection_location[0],detection_location[1],video_detections[frame]])
+        vd = video_detections[frame]
+        plot_points.append([detection_location[0],detection_location[1],vd['run/jog'],vd['sit'],vd['stand'],vd['walk'],vd['ride']])
       #[1.3025233, 103.9192801, {'run/jog': 0, 'sit': 0, 'stand': 0, 'walk': 0, 'ride': 0}]
-    print(out)
-      
 
-
-
-
-
-
+    #unconvolved plot_points
+    #plot_csv(plot_points, csv_file_path)
     
-
-
-def main():
-    parser = argparse.ArgumentParser(description="Action plotter")
-    parser.add_argument('--input', '-i', type=str, help='Input directory the pkl,gpx directory is held.')
-    args = parser.parse_args()
-
-    root_dir = args.input
-    pkl_dir = os.path.join(root_dir,"pkl")
-    gpx_dir = os.path.join(root_dir,"gpx")
-    csv_dir = os.path.join(root_dir,"csv") #output dir
-
-    plot_actions(pkl_dir, gpx_dir,csv_dir)
+    #convolve the detections into points within the PROXIMITY_THRESHOLD
+    convolved_plot_points = convolve_to_head(plot_points)
+    plot_csv(convolved_plot_points,csv_convolved_file_path)
 
 
 if __name__ == '__main__':
