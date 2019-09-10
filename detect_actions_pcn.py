@@ -221,8 +221,8 @@ def main():
         if frames_count > action_freq*2:
             out_img = visualize_detection_results(tracker.frame_history[-16], tracker.active_actors, prob_dict,frames_count)
             if display: 
-                #cv2.imshow('results', out_img[:,:,::-1])
-                #cv2.waitKey(10)
+                cv2.imshow('results', out_img[:,:,::-1])
+                cv2.waitKey(10)
             else:
                 writer.write(out_img)  
 
