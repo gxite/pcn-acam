@@ -16,7 +16,7 @@ import library.util as util
 
 LOG_FILE = True
 #Frequency of action detection
-ACTION_FREQ = 16 
+ACTION_FREQ = 8 
 
 def main():
     parser = argparse.ArgumentParser()
@@ -31,7 +31,6 @@ def main():
 
     main_folder = './'
 
-    #obj_detection_model =  'ssd_mobilenet_v2_coco_2018_03_29' 
     obj_detection_model =  'faster_rcnn_nas_coco_2018_01_28'
     obj_detection_graph = os.path.join("object_detection", "weights", obj_detection_model, "frozen_inference_graph.pb")
     
@@ -225,7 +224,6 @@ def main():
                 log_file.write("**********Note!!!The first action detection will not be written to the pkl file.*********"+ " \n")
                 log_file.write("\n")
 
-
         #appends a result every x frame. x = ACTION_FREQ
         if frames_count > ACTION_FREQ*2 and frames_count % ACTION_FREQ == 0:
             action_tally, current_frame, action_untracked = tracker.get_all_action_tally_at_frame()
@@ -233,7 +231,6 @@ def main():
         else:
             action_out.add({})
 
-        
         #argument for frame history is changed from -16 to -ACTION_FREQ*2
         if frames_count > ACTION_FREQ*2: #Visualize every frame after (ACTION_FREQ*2) 
             out_img = visualize_detection_results(tracker.frame_history[-ACTION_FREQ*2], tracker.active_actors, prob_dict,frames_count)
@@ -260,15 +257,15 @@ def eval_actor_action_in_frame(action_dict):
     for action_key, action_description_prob in action_dict.items():
         if action_description_prob[1] > top_action[1]:
             top_action = action_description_prob
+"""         #override conditions - see if these are needed
         if action_key == 8 and action_description_prob[1] > 0.1: #8: run/jog
             run_jog_present = True
         if action_key == 14 and action_description_prob[1] > 0.2: #14: carry/hold
             carry_present = True
         if action_key == 12 and action_description_prob[1] > 0.5: #12: walk
             walk_present = True
-    
     if walk_present and run_jog_present and carry_present:
-        top_action = ["run/jog", -99.0] #dummy variable -99.0 for probability float
+        top_action = ["run/jog", -99.0] #dummy variable -99.0 for probability float """
 
     return top_action
 
@@ -276,7 +273,6 @@ np.random.seed(10)
 COLORS = np.random.randint(0, 255, [1000, 3])
 def visualize_detection_results(img_np, active_actors, prob_dict,frames_count):
     score_th =  0 #0.30
-    #action_th = 0
 
     # copy the original image first
     disp_img = np.copy(img_np)
@@ -308,12 +304,10 @@ def visualize_detection_results(img_np, active_actors, prob_dict,frames_count):
         bottom = int(H * bottom)
 
         conf = cur_score
-        #label = obj.OBJECT_STRINGS[cur_class]['name']
+
         label = "P"
         message = '%s_%i:%.2f' % (label, actor_id,conf)
-        #action_message_list = ["%s:%.3f" % (action[0][0:7], action[1]) for action in cur_act_results if action[1]>action_th]
-        #15/08/2019 MOD
-        #action_summary = cur_act_results[-1][0]
+
         action_summary = cur_act_results[-1][0] if cur_act_results else "NO_ACTION"
 
         color = COLORS[actor_id]
@@ -329,19 +323,10 @@ def visualize_detection_results(img_np, active_actors, prob_dict,frames_count):
         cv2.rectangle(disp_img, (left, top-int(font_size*40)), (right,top), color.tolist(), -1)
         cv2.putText(disp_img, message, (left, top-12), 0, font_size, (np.array([255,255,255])-color).tolist(), 1)
 
-
-        #position and writes the action messages.
-        '''cv2.rectangle(disp_img, (left, top), (right,top+10*len(action_message_list)), color.tolist(), -1)
-        for aa, action_message in enumerate(action_message_list):
-            offset = aa*10
-            cv2.putText(disp_img, action_message, (left, top+5+offset), 0, font_size, (np.array([255,255,255])-color).tolist(), 1)'''
-
     return disp_img
 
 def draw_label(image, text, top_left_coor, font=cv2.FONT_HERSHEY_SIMPLEX, font_size=0.5, font_weight=1, highlight=(0, 0, 0)):
-    
     (text_width, text_height), baseline = cv2.getTextSize(text, font, font_size, font_weight)
-    
     cv2.rectangle(image, top_left_coor, (top_left_coor[0] + text_width, top_left_coor[1] - text_height), highlight, cv2.FILLED)
     cv2.putText(image, text, (top_left_coor[0], top_left_coor[1]), font, font_size, (255, 255, 255), font_weight)
   
