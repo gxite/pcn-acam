@@ -251,22 +251,9 @@ def get_all_actions_in_frame():
 #evaluates overall action in a given frame
 def eval_actor_action_in_frame(action_dict):
     top_action = ["NULL", 0]
-    run_jog_present = False
-    carry_present = False
-    walk_present = False
     for action_key, action_description_prob in action_dict.items():
         if action_description_prob[1] > top_action[1]:
             top_action = action_description_prob
-"""         #override conditions - see if these are needed
-        if action_key == 8 and action_description_prob[1] > 0.1: #8: run/jog
-            run_jog_present = True
-        if action_key == 14 and action_description_prob[1] > 0.2: #14: carry/hold
-            carry_present = True
-        if action_key == 12 and action_description_prob[1] > 0.5: #12: walk
-            walk_present = True
-    if walk_present and run_jog_present and carry_present:
-        top_action = ["run/jog", -99.0] #dummy variable -99.0 for probability float """
-
     return top_action
 
 np.random.seed(10)
