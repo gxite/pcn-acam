@@ -257,9 +257,12 @@ def eval_actor_action_in_frame(action_dict):
     return top_action
 
 np.random.seed(10)
-COLORS = np.random.randint(0, 255, [1000, 3])
+COLOR_SIZE = 50
+COLORS = np.random.randint(0, 255, [COLOR_SIZE, 3])
 def visualize_detection_results(img_np, active_actors, prob_dict,frames_count):
     score_th =  0 #0.30
+    
+    COLOR_COUNTER = 0
 
     # copy the original image first
     disp_img = np.copy(img_np)
@@ -273,6 +276,8 @@ def visualize_detection_results(img_np, active_actors, prob_dict,frames_count):
         actor_id = cur_actor['actor_id']
         cur_act_results = prob_dict[actor_id] if actor_id in prob_dict else []
         object_class = 1   # 'person' has a id of 1 in OBJECT_STRINGS
+
+        COLOR_COUNTER += 1
 
         try:
             cur_box, cur_score, cur_class = cur_actor['all_boxes'][-ACTION_FREQ*2], cur_actor['all_scores'][0], object_class
@@ -297,7 +302,13 @@ def visualize_detection_results(img_np, active_actors, prob_dict,frames_count):
 
         action_summary = cur_act_results[-1][0] if cur_act_results else "NO_ACTION"
 
-        color = COLORS[actor_id]
+        if COLOR_COUNTER < COLOR_SIZE:
+            color = COLORS[COLOR_COUNTER]
+        else:
+            COLOR_COUNTER = 0
+            color = COLORS[COLOR_COUNTER]
+
+
         cv2.rectangle(disp_img, (left,top), (right,bottom), color.tolist(), 3)
 
         font_size =  max(0.5,(right - left)/50.0/float(len(message)))
