@@ -554,7 +554,7 @@ ACTION_DESCRIPTION = {
 30: "push (an object)",
 31: "put down",
 32: "read",
-33: "ride (e.g., a bike, a car, a horse)",
+33: "ride",
 34: "sail boat",
 35: "shoot",
 36: "smoke",
