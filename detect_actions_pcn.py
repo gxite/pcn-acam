@@ -19,20 +19,52 @@ LOG_FILE = True
 ACTION_FREQ = 8 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-s', '--single_video', type=str, required=False, default="")
+    parser = argparse.ArgumentParser(description="Takes in a GoPro Video in .MP4 format and outputs the detection in .pkl, along with an augmented video and a log file.")
+    parser.add_argument('-v', '--video_path', type=str, required=False, default="")
+    parser.add_argument('-f', '--folder_path', type=str, required=False, default="")
     args = parser.parse_args()
 
-    video_path = args.video_path
-    start_detection(video_path)
-   
+    if args.video_path and not args.folder_path:
+        video_path = args.video_path
+        if is_video_valid(video_path):
+            action_detection(video_path)
+    if args.folder_path and not args.video_path: 
+        folder_path = args.folder_path
+        if os.path.isdir(folder_path):
+            batch_action_detection(folder_path)
+        else:
+            print("#Error#'{}' is not a valid directory.".format(folder_path))
 
-def start_detection(video_path):
+def batch_action_detection(folder_path):
+    invalid_files = []
+    for f in os.listdir(folder_path):
+        video_path = os.path.join(folder_path,f)
+        if is_video_valid(video_path): 
+            action_detection(video_path)
+        else:
+            invalid_files.append(f)
+    
+    if invalid_files:
+        print("--Invalid Files--")
+        for f in invalid_files:
+            print(f)
+        print("----")
+    print("Complete.")
+
+def is_video_valid(video_path) :
+    if os.path.splitext(video_path)[1] == '.MP4' or os.path.splitext(video_path)[1] == '.mp4':
+        return True  
+    else:
+        print("#Error#'{}' is not a valid video path. Video file must be of extension .MP4".format(video_path))
+        return False
+    
+
+def action_detection(video_path):
     basename = os.path.basename(video_path).split('.')[0]
-    out_vid_path = "./output_videos/%s.VIS.mp4" % basename
-    out_pkl_path = "./output_videos/%s.ACT.pkl" % basename
-    log_output_path = "./output_videos/{}.LOG.txt".format(basename)
-
+    out_vid_path = "{}/video_vis/{}.VIS.MP4".format(os.path.split(os.path.dirname(video_path))[0],basename)
+    out_pkl_path = "{}/pkl/{}.ACT.pkl".format(os.path.split(os.path.dirname(video_path))[0],basename)
+    out_log_path = "{}/log/{}.LOG.txt".format(os.path.split(os.path.dirname(video_path))[0],basename)
+    
     main_folder = './'
 
     obj_detection_model =  'faster_rcnn_nas_coco_2018_01_28'
@@ -80,10 +112,10 @@ def start_detection(video_path):
         if frames_count == 0:
             #Creates a txt log file
             if LOG_FILE:
-                log_file = open(log_output_path, "w+")
+                log_file = open(out_log_path, "w+")
         else:
             if LOG_FILE:
-                log_file = open(log_output_path, "a")
+                log_file = open(out_log_path, "a")
         
         return_value, current_video_frame = cap.read() 
         

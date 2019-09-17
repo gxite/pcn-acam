@@ -16,8 +16,9 @@ PROXIMITY_THRESHOLD = 10
 COLUMN_TITLES = ['Latitude', 'Longitude', 'run/jog', 'sit', 'stand', 'walk', 'ride']
 
 def main():
-    parser = argparse.ArgumentParser(description="Action plotter")
-    parser.add_argument('--input', '-i', type=str, help='Input directory the pkl,gpx directory is held.')
+    parser = argparse.ArgumentParser(description="Takes in the detection files in .pkl, coordinates in .gpx and outputs a .csv file.")
+    parser.add_argument('-v', '--video_path', type=str, required=False, default="")
+    parser.add_argument('-f', '--folder_path', type=str, required=False, default="")
     args = parser.parse_args()
 
     root_dir = args.input
@@ -25,26 +26,9 @@ def main():
     gpx_dir = os.path.join(root_dir,"gpx")
     csv_dir = os.path.join(root_dir,"csv") #output dir
 
+    #-------------------------------------------------------sort out flag actions here
     plot_actions(pkl_dir, gpx_dir,csv_dir)
 
-    #For testing when there are more pkl files available
-"""     pkl_files = get_files(pkl_dir)
-    for i in pkl_files:
-      plot_actions(pkl_dir, gpx_dir,csv_dir) """
-
-def get_files(src_dir):
-    #files = [f[:-4] for f in listdir(src_dir) if isfile(join(src_dir, f))]]
-    files = [f for f in listdir(src_dir) if isfile(join(src_dir, f))]
-
-    files_out = []
-    #removes all the file extensions
-    for f in files:
-        temp = f
-        while(os.path.splitext(temp)[1] != ""):
-            temp = os.path.splitext(temp)[0]
-        files_out.append(temp)
-
-    return files_out
 
 def process_gpx(gpx_path):
   """ Read in GPX file from given path and process its data """
@@ -211,7 +195,7 @@ def plot_actions(pkl_dir, gpx_dir, csv_dir):
       #[1.3025233, 103.9192801, {'run/jog': 0, 'sit': 0, 'stand': 0, 'walk': 0, 'ride': 0}]
 
     #unconvolved plot_points
-    #plot_csv(plot_points, csv_file_path)
+    plot_csv(plot_points, csv_file_path)
     
     #convolve the detections into points within the PROXIMITY_THRESHOLD
     convolved_plot_points = convolve_to_head(plot_points)
