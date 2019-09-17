@@ -20,10 +20,14 @@ ACTION_FREQ = 8
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-v', '--video_path', type=str, required=False, default="")
+    parser.add_argument('-s', '--single_video', type=str, required=False, default="")
     args = parser.parse_args()
 
     video_path = args.video_path
+    start_detection(video_path)
+   
+
+def start_detection(video_path):
     basename = os.path.basename(video_path).split('.')[0]
     out_vid_path = "./output_videos/%s.VIS.mp4" % basename
     out_pkl_path = "./output_videos/%s.ACT.pkl" % basename
@@ -241,7 +245,7 @@ def main():
 
     action_out.dump_pickle(out_pkl_path)
     cap.release()
-    writer.release()   
+    writer.release()
 
 #returns a summary of detected actions within the current frame
 def get_all_actions_in_frame():
@@ -256,9 +260,12 @@ def eval_actor_action_in_frame(action_dict):
             top_action = action_description_prob
     return top_action
 
+##-----------visualization------------##
 np.random.seed(10)
 COLOR_SIZE = 50
 COLORS = np.random.randint(0, 255, [COLOR_SIZE, 3])
+
+#visualizer
 def visualize_detection_results(img_np, active_actors, prob_dict,frames_count):
     score_th =  0 #0.30
     
