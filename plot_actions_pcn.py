@@ -16,19 +16,25 @@ PROXIMITY_THRESHOLD = 10
 COLUMN_TITLES = ['Latitude', 'Longitude', 'run/jog', 'sit', 'stand', 'walk', 'ride']
 
 def main():
-    parser = argparse.ArgumentParser(description="Takes in the detection files in .pkl, coordinates in .gpx and outputs a .csv file.")
-    parser.add_argument('-v', '--video_path', type=str, required=False, default="")
-    parser.add_argument('-f', '--folder_path', type=str, required=False, default="")
-    args = parser.parse_args()
+  parser = argparse.ArgumentParser(description="Takes in the detection files in .pkl, coordinates in .gpx and outputs a .csv file.")
+  parser.add_argument('-s', '--pkl_path', type=str, required=False, default="")
+  parser.add_argument('-f', '--folder_path', type=str, required=False, default="")
+  args = parser.parse_args()
 
-    root_dir = args.input
-    pkl_dir = os.path.join(root_dir,"pkl")
-    gpx_dir = os.path.join(root_dir,"gpx")
-    csv_dir = os.path.join(root_dir,"csv") #output dir
+  if args.pkl_path:
+    pkl_path = args.pkl_path
+    plot_actions(pkl_path)
+  if args.folder_path:
+    folder_path = args.folder_path 
+    batch_plot_actions(folder_path)
 
-    #-------------------------------------------------------sort out flag actions here
-    plot_actions(pkl_dir, gpx_dir,csv_dir)
 
+def batch_plot_actions(folder_path):
+  for f in os.listdir(folder_path):
+    pkl_path = os.path.join(folder_path,f)
+    plot_actions(pkl_path)
+
+  print("Complete.") 
 
 def process_gpx(gpx_path):
   """ Read in GPX file from given path and process its data """
@@ -61,33 +67,6 @@ def distance(gps1, gps2):
   g = geod.Inverse(float(gps1[0]), float(gps1[1]), float(gps2[0]), float(gps2[1]))
   distance = g['s12']
   return distance 
-
-def get_filenames_from_dir(directory):
-  '''returns basename without any extension'''
-  files = [os.path.join(directory,f) for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
-  files_out = []
-
-  #removes all the file extensions
-  for f in files:
-    temp = f
-    while(os.path.splitext(temp)[1] != ""):
-        temp = os.path.splitext(temp)[0] #removes file extension
-    files_out.append(os.path.basename(temp))#appends basename
-  return files_out
-
-def set_filename_ext(file_dir,filename,ext):
-  '''Valid ext values are: pkl,gpx,xsv'''
-  if ext == "pkl":
-    with_ext = '{}.ACT.pkl'.format(filename)
-    return os.path.join(file_dir,with_ext)
-  elif ext == "gpx":
-    with_ext = '{}.MP4.gpx'.format(filename)
-    return os.path.join(file_dir,with_ext)
-  elif ext == "csv":
-    with_ext = '{}.ACT.csv'.format(filename)
-    return os.path.join(file_dir,with_ext)
-  else:
-    raise Exception('argument "{}" is not valid'.format(ext))
 
 def load_pickle(pickle_path):
   """Loads pickle from given pickle path"""
@@ -164,42 +143,37 @@ def convolve_to_head(plot_points):
   
   return plot_points_out
 
-def plot_actions(pkl_dir, gpx_dir, csv_dir):
+def plot_actions(pkl_path):
   '''Outputs a csv file of the detections and its corresponding gps coordinate'''
+  
+  basename = os.path.basename(pkl_path).split('.')[0]
+  root_dir = os.path.split(os.path.dirname(pkl_path))[0]
 
-  #uses the files in the pkl directory to generate a list of filenames that is extension free
-  filename_list = get_filenames_from_dir(pkl_dir)
+  in_gpx_path = "{}/gpx/{}.MP4.gpx".format(root_dir,basename)
+  out_csv_path = "{}/csv/{}.MP4.csv".format(root_dir,basename)
+  out_csv_conv_path = "{}/csv_conv/{}.MP4.conv.csv".format(root_dir,basename)
+ 
+  video_detections = load_pickle(pkl_path)
+  frame_count = len(video_detections)
 
-  for filename in filename_list:
-    '''Process each pkl and its corresponding gpx.'''
-      
-    #sets the filepaths for the required files
-    pkl_file_path = set_filename_ext(pkl_dir,filename,"pkl")
-    gpx_file_path = set_filename_ext(gpx_dir,filename,"gpx")
-    csv_file_path = set_filename_ext(csv_dir,filename, "csv")
-    csv_convolved_file_path = set_filename_ext(csv_dir,filename+"_convolved", "csv")
+  coordinates = process_gpx(in_gpx_path)
+  '''[lat,long,timestamp]'''
+
+  plot_points= []
+
+  for frame in range(0,frame_count-1):
+    if video_detections[frame]: # appends location only if there is action detection. ie every 8 frames
+      detection_location = get_corresponding_location(frame, frame_count, coordinates)
+      vd = video_detections[frame]
+      plot_points.append([detection_location[0],detection_location[1],vd['run/jog'],vd['sit'],vd['stand'],vd['walk'],vd['ride']])
+    #[1.3025233, 103.9192801, {'run/jog': 0, 'sit': 0, 'stand': 0, 'walk': 0, 'ride': 0}]
+
+  #unconvolved plot_points
+  plot_csv(plot_points, out_csv_path)
     
-    video_detections = load_pickle(pkl_file_path)
-    frame_count = len(video_detections)
-
-    coordinates = process_gpx(gpx_file_path)
-    '''[lat,long,timestamp]'''
-
-    plot_points= []
-
-    for frame in range(0,frame_count-1):
-      if video_detections[frame]: # appends location only if there is action detection. ie every 8 frames
-        detection_location = get_corresponding_location(frame, frame_count, coordinates)
-        vd = video_detections[frame]
-        plot_points.append([detection_location[0],detection_location[1],vd['run/jog'],vd['sit'],vd['stand'],vd['walk'],vd['ride']])
-      #[1.3025233, 103.9192801, {'run/jog': 0, 'sit': 0, 'stand': 0, 'walk': 0, 'ride': 0}]
-
-    #unconvolved plot_points
-    plot_csv(plot_points, csv_file_path)
-    
-    #convolve the detections into points within the PROXIMITY_THRESHOLD
-    convolved_plot_points = convolve_to_head(plot_points)
-    plot_csv(convolved_plot_points,csv_convolved_file_path)
+  #convolve the detections into points within the PROXIMITY_THRESHOLD
+  convolved_plot_points = convolve_to_head(plot_points)
+  plot_csv(convolved_plot_points,out_csv_conv_path)
 
 
 if __name__ == '__main__':
