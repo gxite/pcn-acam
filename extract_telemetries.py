@@ -33,12 +33,15 @@ def extract_telemetry_all(dir_path, reprocess):
     print('\n'.join(extraction_errors))
     print()
 
-def main():
+def main(video_src_path=""):
   parser = argparse.ArgumentParser(description="Telemetry extractor wrapper for GoPro captures")
   parser.add_argument('--reprocess', '-r', action='store_true', help='Flag to reprocess telemetry')
   parser.add_argument('--single', '-s', type=str, help='Video path for GoPro capture')
   parser.add_argument('--all', '-a', type=str, help='Directory path for GoPro captures')
   args = parser.parse_args()
+
+  if video_src_path != "":
+    args.all = video_src_path
 
   if args.single:
     try:

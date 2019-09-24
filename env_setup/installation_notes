@@ -1,0 +1,13 @@
+CUDA Version 10.0.130    
+
+installed using run file. 
+Do not install the nvidia driver that comes with the runfile.
+
+cudnn 7.6.3
+
+
+
+
+
+
+

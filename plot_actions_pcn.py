@@ -15,11 +15,14 @@ GEOD = Geodesic.WGS84 # define the WGS84 ellipsoid
 PROXIMITY_THRESHOLD = 10
 COLUMN_TITLES = ['Latitude', 'Longitude', 'run/jog', 'sit', 'stand', 'walk', 'ride']
 
-def main():
+def main(pkl_folder_path=""):
   parser = argparse.ArgumentParser(description="Takes in the detection files in .pkl, coordinates in .gpx and outputs a .csv file.")
   parser.add_argument('-s', '--pkl_path', type=str, required=False, default="")
   parser.add_argument('-f', '--folder_path', type=str, required=False, default="")
   args = parser.parse_args()
+  
+  if pkl_folder_path != "":
+    args.folder_path = pkl_folder_path
 
   if args.pkl_path:
     pkl_path = args.pkl_path
@@ -27,14 +30,6 @@ def main():
   if args.folder_path:
     folder_path = args.folder_path 
     batch_plot_actions(folder_path)
-
-
-def batch_plot_actions(folder_path):
-  for f in os.listdir(folder_path):
-    pkl_path = os.path.join(folder_path,f)
-    plot_actions(pkl_path)
-
-  print("Complete.") 
 
 def process_gpx(gpx_path):
   """ Read in GPX file from given path and process its data """
@@ -142,6 +137,12 @@ def convolve_to_head(plot_points):
     plot_points_out.append(head_gps + averages)
   
   return plot_points_out
+
+def batch_plot_actions(folder_path):
+  for f in os.listdir(folder_path):
+    pkl_path = os.path.join(folder_path,f)
+    plot_actions(pkl_path)
+  print("Complete.") 
 
 def plot_actions(pkl_path):
   '''Outputs a csv file of the detections and its corresponding gps coordinate'''

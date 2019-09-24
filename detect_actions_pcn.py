@@ -18,11 +18,14 @@ LOG_FILE = True
 #Frequency of action detection
 ACTION_FREQ = 8 
 
-def main():
+def main(video_src_path=""):
     parser = argparse.ArgumentParser(description="Takes in a GoPro Video in .MP4 format and outputs the detection in .pkl, along with an augmented video and a log file.")
     parser.add_argument('-v', '--video_path', type=str, required=False, default="")
     parser.add_argument('-f', '--folder_path', type=str, required=False, default="")
     args = parser.parse_args()
+
+    if video_src_path != "":
+        args.folder_path = video_src_path
 
     if args.video_path and not args.folder_path:
         video_path = args.video_path
@@ -49,7 +52,6 @@ def batch_action_detection(folder_path):
         for f in invalid_files:
             print(f)
         print("----")
-    print("Complete.")
 
 def is_video_valid(video_path) :
     if os.path.splitext(video_path)[1] == '.MP4' or os.path.splitext(video_path)[1] == '.mp4':
