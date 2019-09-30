@@ -12,7 +12,7 @@ This repository is adapted and modified from scripts authored by [Jin-Zhe](https
 
 ## Environment Setup
 
-1. This project uses [Miniconda](https://docs.conda.io/en/latest/miniconda.html) for package management. The required python packages for GPU implementation can be found in [acam-3.6-gpu.yml](/_env_setup/acam-3.6-gpu.yml). This  
+1. This project uses [Miniconda](https://docs.conda.io/en/latest/miniconda.html) for package management. The required python packages for GPU implementation can be found in [acam-3.6-gpu.yml](/_env_setup/acam-3.6-gpu.yml).
 
 2. CUDA Version 10.0.130 and CUDNN 7.6.3 has been tested to work. *Note! Do not install the nvidia driver that comes with the runfile installer. Use the latest graphics driver that nvidia provides.    
 
@@ -33,6 +33,7 @@ To analyse a single video:
 ```python
 pyhon detect_actions_pcn.py -v <video path>
 ```
+
 
 
 
