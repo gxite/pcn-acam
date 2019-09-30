@@ -79,14 +79,14 @@ class Action_Detector():
 
         return pred_probs
 
-    def define_inference_with_placeholders(self):
+    """ def define_inference_with_placeholders(self):
         with self.act_graph.as_default():
-            input_seq = tf.placeholder(tf.float32, [None, self.timesteps]+ self.input_size + [3])
+            input_seq = tf.placeholder(tf.float32, [None, self.timesteps]+ self.input_size + [3])           
             rois = tf.placeholder(tf.float32, [None, 4]) # top, left, bottom, right
             roi_batch_indices = tf.placeholder(tf.int32, [None])
             
             pred_probs = self.define_inference(input_seq, rois, roi_batch_indices)
-        return input_seq, rois, roi_batch_indices, pred_probs
+        return input_seq, rois, roi_batch_indices, pred_probs """
     
     def define_inference_with_placeholders_noinput(self, input_seq):
         with self.act_graph.as_default():
@@ -323,7 +323,7 @@ class Action_Detector():
 
         # return class_feats
 
-    def non_local_ROI_model_v2(self, context_features, shifted_rois, cur_b_idx, BOX_CROP_SIZE):
+    """ def non_local_ROI_model_v2(self, context_features, shifted_rois, cur_b_idx, BOX_CROP_SIZE):
         '''
         roi_box_features: bounding box features extracted on detected people
         context_features: main feature map extracted from full frame
@@ -366,10 +366,10 @@ class Action_Detector():
 
         i3d_tail_feats = self.i3d_tail_model(box_features)
 
-        return i3d_tail_feats
+        return i3d_tail_feats """
 
 
-    def crop_tubes_in_tf(self, frame_shape):
+    """ def crop_tubes_in_tf(self, frame_shape):
         T,H,W,C = frame_shape
         with self.act_graph.as_default():
             input_frames = tf.placeholder(tf.float32, [None, T, H,W,C])
@@ -379,7 +379,7 @@ class Action_Detector():
             # use temporal rois since we track the actor over time
             cropped_frames = temporal_roi_cropping(input_frames, rois, batch_indices, self.input_size, temp_rois=True)
     
-        return input_frames, rois, batch_indices, cropped_frames
+        return input_frames, rois, batch_indices, cropped_frames """
     
     def crop_tubes_in_tf_with_memory(self, frame_shape, memory_size):
         T,H,W,C = frame_shape

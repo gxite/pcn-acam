@@ -15,6 +15,8 @@ import action_detection.action_detector_pcn as act
 import library.util as util
 
 LOG_FILE = True
+MAX_NUM_ACTORS = 30
+TIMESTEPS = 18
 #Frequency of action detection
 ACTION_FREQ = 8 
 
@@ -75,7 +77,7 @@ def action_detection(video_path):
     print("Loading object detection model at %s" % obj_detection_graph)
     obj_detector = obj.Object_Detector(obj_detection_graph)
 
-    tracker = obj.Tracker()
+    tracker = obj.Tracker(timesteps=TIMESTEPS)
     action_out = util.Output()
 
     print("Reading video file %s" % video_path)
@@ -94,7 +96,7 @@ def action_detection(video_path):
     print("Writing output to %s" % out_vid_path)
 
     #Sets the action detector model & checkpoint
-    act_detector = act.Action_Detector('soft_attn')
+    act_detector = act.Action_Detector('soft_attn',timesteps=TIMESTEPS)
     ckpt_name = 'model_ckpt_soft_attn_pooled_cosine_drop_ava-130'
 
     memory_size = act_detector.timesteps - ACTION_FREQ
@@ -138,6 +140,7 @@ def action_detection(video_path):
         #calling of the object detection functions.
         detection_list = obj_detector.detect_objects_in_np(current_video_frame_expanded)
         detection_info = [info[0] for info in detection_list]
+
         t2 = time.time(); print('obj det %.2f s' % (t2-t1))
 
         if LOG_FILE:
@@ -160,7 +163,7 @@ def action_detection(video_path):
             rois_np, temporal_rois_np = tracker.generate_all_rois()
 
             #Clips the number of actors to the maximum number of actors
-            MAX_NUM_ACTORS = 14  
+            #MAX_NUM_ACTORS = 30
 
             if num_actors > MAX_NUM_ACTORS:
                 num_actors = MAX_NUM_ACTORS

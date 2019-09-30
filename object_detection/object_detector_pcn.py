@@ -84,7 +84,7 @@ class Tracker():
         self.encoder = create_box_encoder(MODEL_CKPT, batch_size=16)
         metric = nn_matching.NearestNeighborDistanceMetric("cosine", 0.2, None) #, max_cosine_distance=0.2) #, nn_budget=None)
         self.tracker = ds_Tracker(metric, max_iou_distance=0.7, max_age=200, n_init=5)
-        self.score_th = 0.40
+        self.score_th = 0.30
 
         #stores all of the evaluated actor's action from all frames.
         self.all_actor_action_history = {}
@@ -121,6 +121,9 @@ class Tracker():
 
         current_frame = self.frame_no 
         all_current_actor_id = self.get_all_current_actor_id()
+        """ import pdb as pb
+        pb.set_trace()
+        print(all_current_actor_id) """
         for actor_id in all_current_actor_id:
             overall_action = self.get_actor_overall_action(actor_id)
             try:
@@ -136,8 +139,11 @@ class Tracker():
 
 
     def get_actor_overall_action(self,actor_id):
-        #overall_action = statistics.mode(self.all_actor_action_history[actor_id])
-        action_list = self.all_actor_action_history[actor_id] 
+        #catch keyerror 
+        try:
+            action_list = self.all_actor_action_history[actor_id] 
+        except KeyError:
+            return "Actor not tracked"
         count_dict = OrderedDict() #order is important
         highest_count = 0
         overall_action = ""
@@ -203,6 +209,13 @@ class Tracker():
         indices = np.logical_and(score_and_bbox_area, classes == 1)
      
         filtered_boxes, filtered_scores = boxes[indices], scores[indices]
+        
+        """ #cap the number of detections
+        CAP = 13
+        if len(filtered_boxes) > CAP :
+            filtered_boxes = filtered_boxes[:CAP]
+            filtered_scores = filtered_scores[:CAP] """
+
 
         H,W,C = frame.shape
         # deep sort format boxes (x, y, W, H)
