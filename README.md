@@ -1,3 +1,5 @@
+*Note! The repository is a work in progress. Users to exercise their own discretion when attempting to use any part of the repository.*
+
 # Introduction
 
 This repository contains scripts that are used on a research project titled *Measuring Physical Profile and Use of Park Connector Network with Deep Learning
