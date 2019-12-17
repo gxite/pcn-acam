@@ -99,7 +99,7 @@ class Tracker():
             self.all_actor_action_history[actor_id] = [overall_action,]
         
             
-    def cleanup_all_actor_action_history(self): #, all_current_actor_id):
+    def cleanup_all_actor_action_history(self): 
         all_current_actor_id = self.get_all_current_actor_id()
         to_cleanup = []
         for active in self.all_actor_action_history: #for each key in all_actor_action_history
@@ -107,8 +107,6 @@ class Tracker():
                 to_cleanup.append(active)
         for item in to_cleanup:
             self.all_actor_action_history.pop(item)
-
-
 
     def get_all_action_tally_at_frame(self):
         action_untracked = {} #21/08/2019 collects all untracked action tally.
@@ -121,9 +119,7 @@ class Tracker():
 
         current_frame = self.frame_no 
         all_current_actor_id = self.get_all_current_actor_id()
-        """ import pdb as pb
-        pb.set_trace()
-        print(all_current_actor_id) """
+ 
         for actor_id in all_current_actor_id:
             overall_action = self.get_actor_overall_action(actor_id)
             try:
@@ -214,13 +210,6 @@ class Tracker():
         indices = np.logical_and(score_and_bbox_area, classes == 1)
      
         filtered_boxes, filtered_scores = boxes[indices], scores[indices]
-        
-        """ #cap the number of detections
-        CAP = 13
-        if len(filtered_boxes) > CAP :
-            filtered_boxes = filtered_boxes[:CAP]
-            filtered_scores = filtered_scores[:CAP] """
-
 
         H,W,C = frame.shape
         # deep sort format boxes (x, y, W, H)
