@@ -307,22 +307,6 @@ class Action_Detector():
         class_feats = self.i3d_tail_model(soft_attention_feats)
         return class_feats
 
-        # with tf.variable_scope('Tail_I3D'):
-        #     tail_end_point = 'Mixed_5c'
-        #     # tail_end_point = 'Mixed_4f'
-        #     final_i3d_feat, end_points = i3d.i3d_tail(soft_attention_feats, self.is_training, tail_end_point)
-        
-        # temporal_len = final_i3d_feat.shape[1]
-        # avg_features = tf.nn.avg_pool3d(      final_i3d_feat,
-        #                                       ksize=[1, temporal_len, 3, 3, 1],
-        #                                       strides=[1, temporal_len, 3, 3, 1],
-        #                                       padding='SAME',
-        #                                       name='TemporalPooling')
-        # # classification
-        # class_feats = tf.layers.flatten(avg_features)
-
-        # return class_feats
-
     """ def non_local_ROI_model_v2(self, context_features, shifted_rois, cur_b_idx, BOX_CROP_SIZE):
         '''
         roi_box_features: bounding box features extracted on detected people
@@ -417,9 +401,6 @@ def memory_placeholder(dtype, shape, memory_size, name=None):
         combined_sequence = tf.identity(combined_sequence)
 
     return updated_frames, combined_sequence
-
-
-
 
 
 def temporal_roi_cropping(features, rois, batch_indices, crop_size, temp_rois=False):
