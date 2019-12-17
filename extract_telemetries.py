@@ -23,7 +23,7 @@ def extract_telemetry_all(dir_path, reprocess):
   for filename in tqdm.tqdm(gopro_videos, total=len(gopro_videos), desc='Processing ' + dir_path):
     video_path = os.path.abspath(os.path.join(dir_path, filename))
     try:
-      extract_telemetry_single(video_path, reprocess)
+      extract_telemetry_single(video_path, reprocess) #calling the module above
     except subprocess.CalledProcessError:
       extraction_errors.append(video_path)
   
