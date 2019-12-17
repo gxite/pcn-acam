@@ -163,7 +163,7 @@ def plot_actions(pkl_path):
   plot_points= []
 
   for frame in range(0,frame_count-1):
-    if video_detections[frame]: # appends location only if there is action detection. ie every 8 frames
+    if video_detections[frame]: # appends location every X frames # X is set as ACTION_FREQ in detect_actions_pcn.py
       detection_location = get_corresponding_location(frame, frame_count, coordinates)
       vd = video_detections[frame]
       plot_points.append([detection_location[0],detection_location[1],vd['run/jog'],vd['sit'],vd['stand'],vd['walk'],vd['ride']])
