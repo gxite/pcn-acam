@@ -12,11 +12,11 @@ import time
 #PCN Project related 
 import object_detection.object_detector_pcn as obj
 import action_detection.action_detector_pcn as act
-import library.util as util
+import _library.util as util
 
 LOG_FILE = True
-MAX_NUM_ACTORS = 30
-TIMESTEPS = 18
+MAX_NUM_ACTORS = 28
+TIMESTEPS = 32
 #Frequency of action detection
 ACTION_FREQ = 8 
 
