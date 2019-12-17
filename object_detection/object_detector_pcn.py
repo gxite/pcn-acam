@@ -165,6 +165,11 @@ class Tracker():
         for key in reversed(count_dict):
             if count_dict[key] == highest_count:
                 overall_action = key
+
+        #override to enhance ride detection.
+        if (overall_action == "sit") and ("ride" in count_dict):
+            overall_action = "ride"
+
         return overall_action
 
     def get_all_current_actor_id(self):
