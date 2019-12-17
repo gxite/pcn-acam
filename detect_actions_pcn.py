@@ -200,16 +200,16 @@ def action_detection(video_path):
 
                 cur_results = []
 
-                TOP_ACTIONS_DECTECTED = {}
+                TOP_ACTIONS_DECTECTED = {} 
                 for i in range(TOP_NUMBER_OF_ACTIONS):
                     action_key = ordered_action_probs[i]
                     ''' int : [string, float]'''
                     TOP_ACTIONS_DECTECTED[action_key] = [act.ACTION_DESCRIPTION[action_key], action_probs[action_key]]
                 
                 #appends description and action probablity to current results.
-                for action_key in TOP_ACTIONS_DECTECTED: 
-                    action_detection_prob = TOP_ACTIONS_DECTECTED[action_key][1]
-                    action_detection_description = TOP_ACTIONS_DECTECTED[action_key][0] 
+                for action_key in TOP_ACTIONS_DECTECTED:                       ##17/12/2019 actions with confidence level < 0.30 not filtered out before appending to pkl. 
+                    action_detection_prob = TOP_ACTIONS_DECTECTED[action_key][1] ##This would mean more noise in data. However, overall_action will help to minimise it. 
+                    action_detection_description = TOP_ACTIONS_DECTECTED[action_key][0] ##actions <0.3 that is recorded in log_file will not show in the visualisation
 
                     print('\t {}: {:.3f}'.format(action_detection_description, action_detection_prob))
                     if LOG_FILE:
