@@ -36,20 +36,20 @@ def extract_telemetry_all(dir_path, reprocess):
 def main(video_src_path=""):
   parser = argparse.ArgumentParser(description="Telemetry extractor wrapper for GoPro captures")
   parser.add_argument('--reprocess', '-r', action='store_true', help='Flag to reprocess telemetry')
-  parser.add_argument('--single', '-s', type=str, help='Video path for GoPro capture')
-  parser.add_argument('--all', '-a', type=str, help='Directory path for GoPro captures')
+  parser.add_argument('--video_path', '-v', type=str, help='Video path for GoPro capture')
+  parser.add_argument('--folder_path', '-f', type=str, help='Directory path for GoPro captures')
   args = parser.parse_args()
 
   if video_src_path != "":
-    args.all = video_src_path
+    args.folder_path = video_src_path
 
-  if args.single:
+  if args.video_path:
     try:
-      extract_telemetry_single(os.path.abspath(args.single), args.reprocess)
+      extract_telemetry_single(os.path.abspath(args.video_path), args.reprocess)
     except subprocess.CalledProcessError as e:
       print('Telemetry extraction for {} has problems: {}'.format(args.single, str(e)))
-  elif args.all:
-    extract_telemetry_all(os.path.abspath(args.all), args.reprocess)
+  elif args.folder_path:
+    extract_telemetry_all(os.path.abspath(args.folder_path), args.reprocess)
 
 if __name__ == '__main__':
   main()

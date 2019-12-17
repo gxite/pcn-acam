@@ -15,8 +15,8 @@ import action_detection.action_detector_pcn as act
 import _library.util as util
 
 LOG_FILE = True
-MAX_NUM_ACTORS = 28
-TIMESTEPS = 32
+MAX_NUM_ACTORS = 26
+TIMESTEPS = 16
 #Frequency of action detection
 ACTION_FREQ = 8 
 
@@ -263,6 +263,8 @@ def action_detection(video_path):
         if frames_count == ACTION_FREQ:
             if LOG_FILE:
                 log_file.write("**********Note!!!The first action detection will not be written to the pkl file.*********"+ " \n")
+                log_file.write("TIMESTEPS={}, MAX_NUM_ACTORS={}".format(TIMESTEPS,MAX_NUM_ACTORS) + " \n")
+                log_file.write("*****************************************************************************************")
                 log_file.write("\n")
 
         #appends a result every x frame. x = ACTION_FREQ
